@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CEFR_DESCRIPTIONS, CEFR_LEVELS, type CefrLevel } from '../../config/constants';
 import { useOnboarding } from '../../context/OnboardingContext';
 import type { OnboardingStackParamList } from '../../navigation/types';
+import { InsightCard } from '../../components/ui/InsightCard';
 import { OnboardingShell } from '../../components/ui/OnboardingShell';
 import { SelectionRow } from '../../components/ui/SelectionRow';
 
@@ -15,9 +16,14 @@ export function LevelScreen({ navigation }: Props) {
   return (
     <OnboardingShell
       step={4}
-      titlePrimary="How much do"
-      titleAccent="you know?"
+      titlePrimary="What's your current "
+      titleAccent="level?"
       subtitle="Not sure? Start at A1 — you can always level up."
+      footerExtra={
+        <InsightCard title="AI Tip" className="mt-6">
+          CEFR levels help your tutor adjust vocabulary and grammar complexity automatically.
+        </InsightCard>
+      }
       onContinue={() => {
         updateDraft({ level: selected, step: 5 });
         navigation.navigate('DailyGoal');

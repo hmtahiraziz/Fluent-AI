@@ -1,29 +1,21 @@
-import React from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CHAT_QUICK_REPLIES } from '../../constants/chatPrompts';
 import { colors } from '../../theme/tokens';
-import { languageMeta } from '../../config/constants';
+import { buttonShadow, softShadow } from '../../theme/glass';
+import { PressableScale } from './PressableScale';
 
 type ChatInputBarProps = {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
   sending?: boolean;
-  languageCode?: string;
   maxWidth?: number;
   horizontalPad?: number;
+  quickReplies?: readonly string[];
+  onQuickReply?: (text: string) => void;
+  showQuickReplies?: boolean;
 };
 
 export function ChatInputBar({
@@ -31,69 +23,77 @@ export function ChatInputBar({
   onChangeText,
   onSend,
   sending,
-  languageCode = 'es',
   maxWidth,
   horizontalPad = 16,
+  quickReplies = CHAT_QUICK_REPLIES,
+  onQuickReply,
+  showQuickReplies = true,
 }: ChatInputBarProps) {
   const insets = useSafeAreaInsets();
-  const lang = languageMeta(languageCode);
+  const [focused, setFocused] = useState(false);
   const canSend = Boolean(value.trim()) && !sending;
-  const scale = useSharedValue(1);
-
-  const sendStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
-      <View
-        className="border-t border-border/40 bg-surface/95 px-4 pt-2"
-        style={{ paddingBottom: Math.max(insets.bottom, 12), paddingHorizontal: horizontalPad }}>
-        <View
-          className="mx-auto w-full"
-          style={{ maxWidth }}>
-          <View className="mb-2 flex-row items-center justify-between px-1">
-            <Text className="text-xs font-medium text-ink-muted">
-              {lang.flag} Practicing {lang.label}
-            </Text>
-            <Text className="text-xs text-ink-faint">🎤 Voice · 📎 Attach (soon)</Text>
-          </View>
-          <View className="flex-row items-end gap-2 rounded-3xl border border-border bg-surface px-3 py-2">
+    <View
+      className="bg-canvas pt-3"
+      style={{
+        paddingHorizontal: horizontalPad,
+        paddingBottom: Math.max(insets.bottom, 12),
+      }}>
+      <View className="mx-auto w-full gap-3" style={{ maxWidth }}>
+        {showQuickReplies && quickReplies.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+            {quickReplies.map(reply => (
+              <PressableScale key={reply} onPress={() => onQuickReply?.(reply)}>
+                <View
+                  className="rounded-full px-4 py-2"
+                  style={{ backgroundColor: colors.surfaceContainer }}>
+                  <Text className="text-sm font-bold text-ink-muted">{reply}</Text>
+                </View>
+              </PressableScale>
+            ))}
+          </ScrollView>
+        ) : null}
+
+        <View className="flex-row items-center gap-2">
+          <View
+            className="min-h-[52px] flex-1 flex-row items-center rounded-full border px-4"
+            style={[
+              softShadow(4),
+              {
+                backgroundColor: colors.surface,
+                borderColor: focused ? colors.primary : colors.border,
+              },
+            ]}>
             <TextInput
               className="max-h-32 min-h-[44px] flex-1 py-2 text-base leading-6 text-ink"
-              placeholder="Message FluentAI…"
+              placeholder="Type a message..."
               placeholderTextColor={colors.inkFaint}
               value={value}
               onChangeText={onChangeText}
               multiline
               editable={!sending}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
             />
-            <Animated.View style={sendStyle}>
-              <Pressable
-                onPress={() => {
-                  if (!canSend) return;
-                  scale.value = withSpring(0.9, {}, () => {
-                    scale.value = withSpring(1);
-                  });
-                  onSend();
-                }}
-                disabled={!canSend}
-                className="mb-0.5 h-11 w-11 items-center justify-center rounded-full"
-                style={{
-                  backgroundColor: canSend ? colors.primary : colors.border,
-                }}>
-                {sending ? (
-                  <Text className="text-white">…</Text>
-                ) : (
-                  <Text className="text-lg font-bold text-white">↑</Text>
-                )}
-              </Pressable>
-            </Animated.View>
+            <Text className="text-lg text-ink-faint">🎤</Text>
           </View>
+          <Pressable
+            onPress={() => canSend && onSend()}
+            disabled={!canSend}
+            className="h-[52px] w-[52px] items-center justify-center rounded-full"
+            style={[
+              { backgroundColor: canSend ? colors.primary : colors.border },
+              buttonShadow(),
+            ]}>
+            <Text className="text-lg font-bold text-white">{sending ? '…' : '↑'}</Text>
+          </Pressable>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }

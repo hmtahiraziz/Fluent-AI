@@ -1,7 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import type { Message } from '../../api/types';
-import { TutorAvatar } from '../brand/TutorAvatar';
 import { colors } from '../../theme/tokens';
 import { softShadow } from '../../theme/glass';
 
@@ -18,31 +17,46 @@ type ChatBubbleProps = {
   showAvatar?: boolean;
 };
 
-export function ChatBubble({ message, showAvatar = true }: ChatBubbleProps) {
+export function ChatBubble({ message }: ChatBubbleProps) {
   const isUser = message.role === 'user';
   const time = formatTime(message.createdAt);
 
   return (
-    <View className={`mb-4 max-w-[90%] ${isUser ? 'self-end' : 'self-start'}`}>
-      {!isUser && showAvatar ? (
-        <View className="mb-2 flex-row items-center gap-2">
-          <TutorAvatar size="sm" />
-          <Text className="text-xs font-semibold text-ink-muted">FluentAI Tutor</Text>
-          {time ? <Text className="text-xs text-ink-faint">{time}</Text> : null}
-        </View>
-      ) : null}
-      {isUser && time ? (
-        <Text className="mb-1 self-end text-xs text-ink-faint">{time}</Text>
-      ) : null}
+    <View className={`mb-4 max-w-[85%] ${isUser ? 'self-end items-end' : 'self-start items-start'}`}>
       <View
-        className={`rounded-3xl px-4 py-3 ${
-          isUser ? 'rounded-br-lg bg-brand' : 'rounded-bl-lg bg-surface border border-border'
-        }`}
-        style={!isUser ? softShadow(3) : undefined}>
+        className="rounded-2xl px-4 py-3"
+        style={[
+          softShadow(),
+          {
+            backgroundColor: isUser ? colors.primaryContainer : colors.surface,
+            borderTopLeftRadius: isUser ? 16 : 4,
+            borderTopRightRadius: isUser ? 4 : 16,
+            borderBottomLeftRadius: 16,
+            borderBottomRightRadius: 16,
+            borderWidth: isUser ? 0 : 1,
+            borderColor: colors.surfaceContainer,
+          },
+        ]}>
         <Text
-          className={`text-base leading-7 ${isUser ? 'font-medium text-white' : 'text-ink'}`}>
+          className="text-base leading-6"
+          style={{ color: isUser ? colors.onPrimaryContainer : colors.ink }}>
           {message.content}
         </Text>
+      </View>
+      {time ? (
+        <Text className="mt-1 px-1 text-xs text-ink-muted">{time}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+export function ChatDatePill({ label = 'Today' }: { label?: string }) {
+  return (
+    <View className="mb-6 items-center">
+      <View
+        className="rounded-full px-4 py-1"
+        style={{ backgroundColor: colors.surfaceContainer }}>
+        <Text className="text-xs font-medium text-ink-muted">{label}</Text>
       </View>
     </View>
   );

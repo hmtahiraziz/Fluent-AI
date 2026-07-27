@@ -5,14 +5,16 @@ import { colors } from '../../theme/tokens';
 
 type GlassCardProps = ViewProps & {
   children: React.ReactNode;
-  tint?: 'default' | 'lavender' | 'gold';
+  tint?: 'default' | 'lavender' | 'gold' | 'insight' | 'surface';
   className?: string;
 };
 
 const tints = {
   default: colors.surface,
-  lavender: colors.lavenderMuted,
+  lavender: colors.primarySoft,
   gold: colors.phraseCard,
+  insight: colors.insight,
+  surface: colors.surfaceContainerLow,
 };
 
 export function GlassCard({
@@ -24,7 +26,7 @@ export function GlassCard({
 }: GlassCardProps) {
   return (
     <View
-      className={`p-4 ${className}`}
+      className={`rounded-card p-5 ${className}`}
       style={[{ ...cardStyle, backgroundColor: tints[tint] }, softShadow(), style]}
       {...props}>
       {children}

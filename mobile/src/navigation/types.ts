@@ -1,7 +1,9 @@
 export type AuthStackParamList = {
   Welcome: undefined;
   CreateAccount: undefined;
-  SignIn: undefined;
+  SignIn: { resetSuccess?: boolean } | undefined;
+  ForgotPassword: undefined;
+  ResetPassword: { email: string; resetToken: string };
 };
 
 export type OnboardingStackParamList = {

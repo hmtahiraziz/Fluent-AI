@@ -1,22 +1,19 @@
 import React, { useState } from 'react';
 import { Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 import { colors } from '../../theme/tokens';
 
 type FloatingInputProps = TextInputProps & {
   label: string;
   error?: string;
   hint?: string;
+  labelRight?: React.ReactNode;
 };
 
 export function FloatingInput({
   label,
   error,
   hint,
+  labelRight,
   value,
   secureTextEntry,
   onFocus,
@@ -25,45 +22,29 @@ export function FloatingInput({
 }: FloatingInputProps) {
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(Boolean(secureTextEntry));
-  const focusAnim = useSharedValue(0);
-  const hasValue = Boolean(value && String(value).length > 0);
-  const floated = focused || hasValue;
-
-  const borderStyle = useAnimatedStyle(() => ({
-    borderColor: error
-      ? colors.danger
-      : focusAnim.value
-        ? colors.primary
-        : colors.border,
-  }));
 
   return (
     <View className="mb-4">
-      <Animated.View
-        className="min-h-[56px] justify-center rounded-2xl border-2 bg-surface px-4"
-        style={borderStyle}>
-        <Text
-          className="absolute left-4 text-sm font-semibold"
-          style={{
-            top: floated ? 8 : 18,
-            fontSize: floated ? 12 : 16,
-            color: error ? colors.danger : floated ? colors.primary : colors.inkMuted,
-          }}>
-          {label}
-        </Text>
+      <View className="mb-2 ml-4 mr-4 flex-row items-center justify-between">
+        <Text className="text-sm font-bold text-ink-muted">{label}</Text>
+        {labelRight}
+      </View>
+      <View
+        className="min-h-[52px] flex-row items-center rounded-full border bg-white px-5"
+        style={{
+          borderColor: error ? colors.danger : focused ? colors.primary : colors.border,
+        }}>
         <TextInput
           value={value}
           secureTextEntry={secureTextEntry && hidden}
           placeholderTextColor={colors.inkFaint}
-          className="pt-4 text-base text-ink"
+          className="flex-1 text-base text-ink"
           onFocus={e => {
             setFocused(true);
-            focusAnim.value = withTiming(1, { duration: 150 });
             onFocus?.(e);
           }}
           onBlur={e => {
             setFocused(false);
-            focusAnim.value = withTiming(0, { duration: 150 });
             onBlur?.(e);
           }}
           {...props}
@@ -71,16 +52,15 @@ export function FloatingInput({
         {secureTextEntry ? (
           <Pressable
             onPress={() => setHidden(v => !v)}
-            className="absolute right-3 top-4 p-1"
             accessibilityLabel={hidden ? 'Show password' : 'Hide password'}>
             <Text className="text-lg">{hidden ? '👁' : '🙈'}</Text>
           </Pressable>
         ) : null}
-      </Animated.View>
+      </View>
       {error ? (
-        <Text className="mt-1.5 text-sm font-medium text-coral">{error}</Text>
+        <Text className="mt-1.5 ml-4 text-sm font-medium text-ink">{error}</Text>
       ) : hint ? (
-        <Text className="mt-1.5 text-sm text-ink-muted">{hint}</Text>
+        <Text className="mt-1.5 ml-4 text-sm text-ink-muted">{hint}</Text>
       ) : null}
     </View>
   );
@@ -113,7 +93,7 @@ export function PasswordStrengthBar({ password }: { password: string }) {
           <View
             key={i}
             className="h-1 flex-1 rounded-full"
-            style={{ backgroundColor: i <= score ? color : colors.border }}
+            style={{ backgroundColor: i <= score ? color : colors.borderLight }}
           />
         ))}
       </View>

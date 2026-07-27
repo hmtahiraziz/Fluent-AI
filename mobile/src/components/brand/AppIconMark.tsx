@@ -1,6 +1,9 @@
 import React from 'react';
-import { Text, View, type ViewStyle } from 'react-native';
-import { colors } from '../../theme/tokens';
+import { View, type ViewStyle } from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { softShadow } from '../../theme/glass';
+
+export const BRAND_ICON_PURPLE = '#5A62A3';
 
 type AppIconMarkProps = {
   size?: number;
@@ -8,63 +11,51 @@ type AppIconMarkProps = {
 };
 
 export function AppIconMark({ size = 48, style }: AppIconMarkProps) {
-  const ring = Math.max(2, Math.round(size * 0.06));
-  const inner = size - ring * 4;
+  const corner = size * 0.22;
+  const dotSize = size * 0.22;
+  const canvas = size + dotSize * 0.35;
 
   return (
     <View
       accessibilityLabel="FluentAI"
-      style={[
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: colors.primary,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: ring,
-          borderColor: colors.primaryLight,
-        },
-        style,
-      ]}>
-      <View
-        style={{
-          width: inner * 0.55,
-          height: inner * 0.42,
-          borderTopLeftRadius: inner * 0.22,
-          borderTopRightRadius: inner * 0.22,
-          borderBottomLeftRadius: inner * 0.08,
-          borderBottomRightRadius: inner * 0.08,
-          backgroundColor: colors.surface,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <Text
-          style={{
-            fontSize: inner * 0.28,
-            fontWeight: '800',
-            color: colors.primary,
-            marginTop: -1,
-          }}>
-          F
-        </Text>
-      </View>
-      <View
-        style={{
-          position: 'absolute',
-          top: size * 0.12,
-          right: size * 0.12,
-          width: size * 0.22,
-          height: size * 0.22,
-          borderRadius: size * 0.11,
-          backgroundColor: colors.accent,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <Text style={{ fontSize: size * 0.12, color: colors.surface, fontWeight: '700' }}>
-          ✦
-        </Text>
-      </View>
+      style={[{ width: canvas, height: canvas }, style]}>
+      <Svg width={canvas} height={canvas} viewBox={`0 0 ${canvas} ${canvas}`}>
+        <Rect
+          x={0}
+          y={dotSize * 0.2}
+          width={size}
+          height={size}
+          rx={corner}
+          ry={corner}
+          fill={BRAND_ICON_PURPLE}
+        />
+        <Path
+          d={`M ${size * 0.28} ${size * 0.72} 
+              C ${size * 0.34} ${size * 0.38}, ${size * 0.42} ${size * 0.28}, ${size * 0.5} ${size * 0.28}
+              C ${size * 0.58} ${size * 0.28}, ${size * 0.66} ${size * 0.38}, ${size * 0.72} ${size * 0.72}
+              M ${size * 0.38} ${size * 0.54} L ${size * 0.62} ${size * 0.54}`}
+          stroke="#FFFFFF"
+          strokeWidth={size * 0.07}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          transform={`translate(0, ${dotSize * 0.2})`}
+        />
+        <Circle
+          cx={size - dotSize * 0.15}
+          cy={dotSize * 0.35}
+          r={dotSize / 2}
+          fill={BRAND_ICON_PURPLE}
+        />
+      </Svg>
+    </View>
+  );
+}
+
+export function AppIconMarkShadow({ size = 48, style }: AppIconMarkProps) {
+  return (
+    <View style={softShadow(8)}>
+      <AppIconMark size={size} style={style} />
     </View>
   );
 }

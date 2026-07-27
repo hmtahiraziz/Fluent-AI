@@ -8,7 +8,15 @@ import {
 import { buttonShadow } from '../theme/glass';
 import { colors } from '../theme/tokens';
 
-type Variant = 'primary' | 'secondary' | 'lavender' | 'outline' | 'ghost' | 'danger' | 'light' | 'dark';
+type Variant =
+  | 'primary'
+  | 'secondary'
+  | 'lavender'
+  | 'outline'
+  | 'ghost'
+  | 'danger'
+  | 'light'
+  | 'dark';
 
 type ButtonProps = PressableProps & {
   title: string;
@@ -18,19 +26,19 @@ type ButtonProps = PressableProps & {
 };
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-brand',
-  secondary: 'bg-accent',
-  lavender: 'bg-lavender',
-  outline: 'bg-surface border border-ink/20',
+  primary: 'bg-accent-pill',
+  secondary: 'bg-secondary-container',
+  lavender: 'bg-accent-pill',
+  outline: 'bg-transparent border border-border',
   ghost: 'bg-transparent',
   danger: 'bg-coral',
   light: 'bg-surface',
-  dark: 'bg-ink',
+  dark: 'bg-nav',
 };
 
 const textVariants: Record<Variant, string> = {
-  primary: 'text-white',
-  secondary: 'text-white',
+  primary: 'text-ink',
+  secondary: 'text-secondary-onContainer',
   lavender: 'text-ink',
   outline: 'text-ink',
   ghost: 'text-brand',
@@ -49,24 +57,28 @@ export function Button({
 }: ButtonProps) {
   const isDisabled = disabled || loading;
   const spinnerColor =
-    variant === 'outline' || variant === 'ghost' || variant === 'lavender' || variant === 'light'
+    variant === 'outline' || variant === 'ghost' || variant === 'light'
       ? colors.primary
-      : '#fff';
+      : variant === 'lavender' || variant === 'primary'
+        ? colors.ink
+        : '#fff';
 
   return (
     <Pressable
       accessibilityRole="button"
       disabled={isDisabled}
-      className={`min-h-[52px] items-center justify-center rounded-[28px] px-6 py-3.5 ${variants[variant]} ${isDisabled ? 'opacity-50' : ''} ${className}`}
+      className={`min-h-[52px] items-center justify-center rounded-full px-6 py-3.5 ${variants[variant]} ${isDisabled ? 'opacity-50' : ''} ${className}`}
       style={({ pressed }) => [
-        variant === 'lavender' || variant === 'primary' || variant === 'dark' ? buttonShadow() : undefined,
+        variant === 'lavender' || variant === 'primary' || variant === 'dark'
+          ? buttonShadow()
+          : undefined,
         pressed && !isDisabled ? { opacity: 0.92, transform: [{ scale: 0.98 }] } : undefined,
       ]}
       {...props}>
       {loading ? (
         <ActivityIndicator color={spinnerColor} />
       ) : (
-        <Text className={`text-center text-base font-bold ${textVariants[variant]}`}>
+        <Text className={`text-center text-lg font-bold ${textVariants[variant]}`}>
           {title}
         </Text>
       )}

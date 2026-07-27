@@ -41,8 +41,17 @@ api.interceptors.response.use(
 
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const msg = error.response?.data?.error;
-    if (typeof msg === 'string') return msg;
+    const data = error.response?.data as
+      | { error?: string; details?: { message?: string }[] }
+      | undefined;
+    const msg = data?.error;
+    if (typeof msg === 'string') {
+      const detail = data?.details?.[0]?.message;
+      if (detail && msg === 'Validation failed') {
+        return detail;
+      }
+      return msg;
+    }
     if (error.message === 'Network Error') {
       return 'Cannot reach server. Make sure the backend is running.';
     }

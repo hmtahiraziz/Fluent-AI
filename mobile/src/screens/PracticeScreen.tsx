@@ -1,37 +1,132 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  FlatList,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as api from '../api/endpoints';
-import type { Conversation } from '../api/types';
+import type { Conversation, VocabularyItem } from '../api/types';
 import { getErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { LanguageBadge, LevelBadge } from '../components/Badges';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
 import { TutorAvatar } from '../components/brand/TutorAvatar';
 import { ErrorCard } from '../components/ui/ErrorCard';
-import { GlassCard } from '../components/ui/GlassCard';
 import { PressableScale } from '../components/ui/PressableScale';
-import { PromptChip, SuggestionChips } from '../components/ui/PromptChip';
 import { SkeletonList } from '../components/ui/Shimmer';
-import { SplitHeadline } from '../components/ui/SplitHeadline';
+import { UserAvatar } from '../components/ui/StitchHeader';
 import { DailyGoalWidget } from '../components/widgets/DailyGoalWidget';
-import { EmptyStateWidget } from '../components/widgets/EmptyStateWidget';
-import { StreakWidget } from '../components/widgets/StreakWidget';
-import { CONVERSATION_TOPICS, SUGGESTED_PROMPTS } from '../constants/chatPrompts';
+import { FOR_YOU_ITEMS, HOME_TOPIC_CHIPS, LEARNING_TIP } from '../constants/homeContent';
 import { languageMeta, LAST_PRACTICE_KEY, PENDING_CHAT_PROMPT_KEY } from '../config/constants';
 import type { RootStackParamList } from '../navigation/types';
 import { useResponsive } from '../hooks/useResponsive';
 import { colors } from '../theme/tokens';
 import { softShadow } from '../theme/glass';
+
+function HomeHeader({
+  name,
+  initials,
+  streakLabel,
+}: {
+  name: string;
+  initials: string;
+  streakLabel: string;
+}) {
+  const insets = useSafeAreaInsets();
+  const { horizontalPadding } = useResponsive();
+
+  return (
+    <View
+      className="mb-6 flex-row items-center justify-between bg-canvas"
+      style={{
+        marginTop: -(insets.top + 8),
+        paddingTop: insets.top + 8,
+        marginHorizontal: -horizontalPadding,
+        paddingHorizontal: horizontalPadding,
+        paddingBottom: 8,
+      }}>
+      <View className="flex-row items-center gap-3">
+        <UserAvatar initials={initials} />
+        <View>
+          <Text className="text-xs font-medium text-ink-muted">Welcome back,</Text>
+          <Text className="text-2xl font-bold capitalize leading-none text-brand">{name}</Text>
+        </View>
+      </View>
+      <View
+        className="flex-row items-center rounded-full px-4 py-1.5"
+        style={{ backgroundColor: colors.primarySoft }}>
+        <Text className="text-sm font-bold" style={{ color: colors.primaryDark }}>
+          🔥 {streakLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function TopicChipRow({
+  activeLabel,
+  onSelect,
+}: {
+  activeLabel: string | null;
+  onSelect: (chip: (typeof HOME_TOPIC_CHIPS)[number]) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+      {HOME_TOPIC_CHIPS.map(chip => {
+        const active = activeLabel === chip.label;
+        return (
+          <PressableScale key={chip.label} onPress={() => onSelect(chip)}>
+            <View
+              className="rounded-full px-6 py-2.5"
+              style={{
+                backgroundColor: active ? colors.secondaryContainer : colors.surfaceContainer,
+              }}>
+              <Text
+                className="text-sm font-bold"
+                style={{ color: active ? colors.onSecondaryContainer : colors.inkMuted }}>
+                {chip.label}
+              </Text>
+            </View>
+          </PressableScale>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+function ForYouCard({
+  title,
+  meta,
+  emoji,
+  onPress,
+}: {
+  title: string;
+  meta: string;
+  emoji: string;
+  onPress: () => void;
+}) {
+  return (
+    <PressableScale onPress={onPress}>
+      <View
+        className="mb-3 flex-row items-center gap-4 rounded-[24px] p-4"
+        style={[{ backgroundColor: colors.surface }, softShadow()]}>
+        <View
+          className="h-16 w-16 items-center justify-center overflow-hidden rounded-2xl"
+          style={{ backgroundColor: colors.primarySoft }}>
+          <Text className="text-2xl">{emoji}</Text>
+        </View>
+        <View className="flex-1">
+          <Text className="text-sm font-bold text-ink">{title}</Text>
+          <Text className="mt-0.5 text-base text-ink-muted">{meta}</Text>
+        </View>
+        <Text className="text-xl text-ink-faint">›</Text>
+      </View>
+    </PressableScale>
+  );
+}
 
 export function PracticeScreen() {
   const navigation =
@@ -39,23 +134,27 @@ export function PracticeScreen() {
   const { settings, user } = useAuth();
   const { isTablet } = useResponsive();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [wordCount, setWordCount] = useState(0);
+  const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
-  const [streakLabel, setStreakLabel] = useState('Start today');
+  const [streakLabel, setStreakLabel] = useState('7 Days');
+  const [activeTopic, setActiveTopic] = useState<string | null>('Grammar');
 
   const target = languageMeta(settings?.targetLanguage ?? 'es');
   const level = settings?.level ?? 'A1';
   const dailyGoal = settings?.dailyGoalMinutes ?? 10;
-  const greeting = useMemo(() => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  }, []);
+  const name = user?.email?.split('@')[0] ?? 'Learner';
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? '?';
+
+  const lastConversation = conversations[0] ?? null;
+
+  const resumeSubtitle = useMemo(() => {
+    if (lastConversation?.title) {
+      return `You were learning about '${lastConversation.title}' in ${target.label}.`;
+    }
+    return `Ready to practice ${target.label} at ${level} level?`;
+  }, [lastConversation?.title, target.label, level]);
 
   const goalProgress = useMemo(() => {
     const today = new Date().toDateString();
@@ -65,6 +164,11 @@ export function PracticeScreen() {
     return Math.min(100, (todayChats / Math.max(dailyGoal / 5, 1)) * 100);
   }, [conversations, dailyGoal]);
 
+  const wordsToday = useMemo(() => {
+    const today = new Date().toDateString();
+    return vocabulary.filter(w => new Date(w.createdAt).toDateString() === today).length;
+  }, [vocabulary]);
+
   const load = useCallback(async () => {
     try {
       const [list, words] = await Promise.all([
@@ -72,16 +176,15 @@ export function PracticeScreen() {
         api.fetchVocabulary(),
       ]);
       setConversations(list);
-      setWordCount(words.length);
+      setVocabulary(words);
       const last = await AsyncStorage.getItem(LAST_PRACTICE_KEY);
       const today = new Date().toDateString();
-      setStreakLabel(last === today ? '1 day streak' : 'Start today');
+      setStreakLabel(last === today ? '7 Days' : 'Start today');
       setError('');
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
@@ -91,9 +194,14 @@ export function PracticeScreen() {
     setCreating(true);
     setError('');
     try {
-      const c = await api.createConversation();
+      const c = await api.createConversation(
+        initialPrompt ? initialPrompt.slice(0, 80) : undefined,
+      );
       if (initialPrompt) {
-        await AsyncStorage.setItem(PENDING_CHAT_PROMPT_KEY, initialPrompt);
+        await AsyncStorage.setItem(
+          PENDING_CHAT_PROMPT_KEY,
+          JSON.stringify({ conversationId: c.id, prompt: initialPrompt }),
+        );
       }
       navigation.navigate('Chat', {
         conversationId: c.id,
@@ -107,9 +215,21 @@ export function PracticeScreen() {
     }
   }
 
+  function resumeChat() {
+    if (lastConversation) {
+      navigation.navigate('Chat', {
+        conversationId: lastConversation.id,
+        title: lastConversation.title ?? 'Practice',
+      });
+      return;
+    }
+    void startNewChat();
+  }
+
   if (loading) {
     return (
       <Screen hasTabBar scroll>
+        <HomeHeader name={name} initials={initials} streakLabel={streakLabel} />
         <SkeletonList count={4} />
       </Screen>
     );
@@ -117,95 +237,105 @@ export function PracticeScreen() {
 
   return (
     <Screen scroll hasTabBar>
-      <View className="mb-6 flex-row items-center justify-between">
-        <View className="flex-1">
-          <SplitHeadline primary={greeting} accent="!" />
-          <Text className="mt-2 text-base leading-6 text-ink-muted">
-            Ready to practice {target.label} today?
-          </Text>
-        </View>
-        <View
-          className="ml-4 h-12 w-12 items-center justify-center rounded-2xl"
-          style={[{ backgroundColor: colors.primary }, softShadow(4)]}>
-          <Text className="text-sm font-bold text-white">{initials}</Text>
-        </View>
-      </View>
+      <HomeHeader name={name} initials={initials} streakLabel={streakLabel} />
 
-      <View className={`mb-6 gap-3 ${isTablet ? 'flex-row' : 'flex-col'}`}>
-        <StreakWidget label={streakLabel} />
-        <DailyGoalWidget minutes={dailyGoal} progress={goalProgress} />
-        <GlassCard className="flex-1 justify-center" tint="lavender">
-          <Text className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            Words saved
-          </Text>
-          <Text className="mt-1 text-3xl font-extrabold text-ink">{wordCount}</Text>
-          <Text className="mt-1 text-xs text-ink-muted">From tutor corrections</Text>
-        </GlassCard>
-      </View>
-
-      <GlassCard tint="lavender" className="mb-6">
-        <View className="flex-row items-start gap-3">
-          <TutorAvatar size="md" />
-          <View className="flex-1">
-            <Text className="text-xl font-extrabold text-ink">Your AI tutor is ready</Text>
-            <Text className="mt-2 text-base leading-6 text-ink-muted">
-              Start a conversation — I'll correct gently and help you build vocabulary.
+      <View
+        className="mb-6 overflow-hidden rounded-[24px] p-6"
+        style={{ backgroundColor: colors.insight }}>
+        <View className="flex-row items-start justify-between">
+          <View className="flex-1 pr-3">
+            <View className="mb-1 flex-row items-center gap-2">
+              <Text className="text-base">✨</Text>
+              <Text
+                className="text-xs font-bold uppercase tracking-wider"
+                style={{ color: colors.tertiary }}>
+                AI Tutor
+              </Text>
+            </View>
+            <Text
+              className="text-[28px] font-bold leading-9"
+              style={{ color: '#1f1c0a' }}>
+              Continue Practice
+            </Text>
+            <Text className="mt-2 max-w-[200px] text-base leading-6 text-tertiary">
+              {resumeSubtitle}
             </Text>
           </View>
+          <View className="h-24 w-24 items-center justify-center">
+            <TutorAvatar size="md" />
+          </View>
         </View>
-        <View className="mb-2 mt-5 flex-row flex-wrap gap-2">
-          <LanguageBadge code={target.code} />
-          <LevelBadge level={level} />
-        </View>
-        <Text className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-faint">
-          Suggested prompts
-        </Text>
-        <SuggestionChips
-          prompts={SUGGESTED_PROMPTS.slice(0, 4)}
-          onSelect={prompt => void startNewChat(prompt)}
-        />
         <Button
-          title="Start conversation"
-          variant="lavender"
+          title="Resume Chat"
+          variant="dark"
           loading={creating}
-          className="mt-4"
-          onPress={() => startNewChat()}
+          className="mt-6"
+          onPress={resumeChat}
         />
-      </GlassCard>
+      </View>
 
-      <Text className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-faint">
-        Topics
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
-        {CONVERSATION_TOPICS.map(t => (
-          <PromptChip
-            key={t.label}
-            emoji={t.emoji}
-            label={t.label}
-            onPress={() =>
-              void startNewChat(`Let's practice a conversation about ${t.label.toLowerCase()}.`)
-            }
-          />
-        ))}
-      </ScrollView>
+      <View className="mb-6">
+        <TopicChipRow
+          activeLabel={activeTopic}
+          onSelect={chip => {
+            setActiveTopic(chip.label);
+            void startNewChat(chip.prompt);
+          }}
+        />
+      </View>
 
-      <GlassCard tint="lavender" className="mb-8">
-        <View className="mb-3 flex-row items-center gap-2">
-          <LanguageBadge code={target.code} />
-          <LevelBadge level={level} />
+      <View className={`mb-4 gap-4 ${isTablet ? 'flex-row' : 'flex-row flex-wrap'}`}>
+        <View className="min-w-[45%] flex-1">
+          <DailyGoalWidget minutes={dailyGoal} progress={goalProgress} />
         </View>
-        <Text className="text-xl font-extrabold text-ink">Continue in {target.label}</Text>
-        <Text className="mt-2 text-base leading-6 text-ink-muted">
-          Pick up where you left off or start fresh with your tutor.
-        </Text>
-        <Button
-          title="New chat"
-          variant="outline"
-          loading={creating}
-          className="mt-4"
-          onPress={() => startNewChat()}
-        />
-      </GlassCard>
+        <View
+          className="min-w-[45%] flex-1 justify-between rounded-[24px] p-5"
+          style={[{ backgroundColor: colors.surface, minHeight: 180 }, softShadow()]}>
+          <View className="flex-row items-start justify-between">
+            <Text className="text-xs font-medium text-ink-muted">Words Saved</Text>
+            <Text className="text-lg" style={{ color: colors.secondary }}>
+              📖
+            </Text>
+          </View>
+          <View className="mt-4">
+            <Text className="text-[40px] font-extrabold leading-none text-ink">
+              {vocabulary.length}
+            </Text>
+            <Text className="mt-1 text-xs font-medium text-ink-muted">
+              {wordsToday > 0 ? `+${wordsToday} today` : 'From tutor corrections'}
+            </Text>
+          </View>
+          <View
+            className="mt-4 h-1 overflow-hidden rounded-full"
+            style={{ backgroundColor: colors.surfaceContainer }}>
+            <View
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(100, vocabulary.length > 0 ? 66 : 0)}%`,
+                backgroundColor: colors.secondary,
+              }}
+            />
+          </View>
+        </View>
+      </View>
+
+      <View
+        className="mb-8 flex-row items-center gap-4 rounded-[24px] p-5"
+        style={{ backgroundColor: colors.primaryContainer }}>
+        <View className="rounded-2xl p-3" style={{ backgroundColor: colors.primary }}>
+          <Text className="text-lg text-white">💡</Text>
+        </View>
+        <View className="flex-1">
+          <Text className="text-sm font-bold" style={{ color: colors.onPrimaryContainer }}>
+            Learning Tip
+          </Text>
+          <Text
+            className="mt-1 text-base leading-6"
+            style={{ color: colors.onPrimaryContainer, opacity: 0.9 }}>
+            {LEARNING_TIP}
+          </Text>
+        </View>
+      </View>
 
       {error ? (
         <View className="mb-4">
@@ -213,57 +343,16 @@ export function PracticeScreen() {
         </View>
       ) : null}
 
-      <Text className="mb-3 text-lg font-extrabold text-ink">Recent conversations</Text>
-      {conversations.length === 0 ? (
-        <EmptyStateWidget
-          title="No conversations yet"
-          subtitle="Tap a suggested prompt above to begin your first chat."
+      <Text className="mb-4 px-1 text-2xl font-bold text-ink">For You</Text>
+      {FOR_YOU_ITEMS.map(item => (
+        <ForYouCard
+          key={item.id}
+          title={item.title}
+          meta={item.meta}
+          emoji={item.emoji}
+          onPress={() => void startNewChat(item.prompt)}
         />
-      ) : (
-        <FlatList
-          scrollEnabled={false}
-          data={conversations.slice(0, 5)}
-          keyExtractor={item => item.id}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                void load();
-              }}
-              tintColor={colors.primary}
-            />
-          }
-          renderItem={({ item }) => (
-            <PressableScale
-              onPress={() =>
-                navigation.navigate('Chat', {
-                  conversationId: item.id,
-                  title: item.title ?? 'Chat',
-                })
-              }
-              className="mb-3">
-              <GlassCard>
-                <View className="flex-row items-center gap-3">
-                  <TutorAvatar size="sm" />
-                  <View className="flex-1">
-                    <Text className="font-bold text-ink" numberOfLines={1}>
-                      {item.title ?? 'Practice chat'}
-                    </Text>
-                    <Text className="mt-1 text-xs text-ink-muted">
-                      {new Date(item.createdAt).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </Text>
-                  </View>
-                  <Text className="text-lg text-ink-faint">›</Text>
-                </View>
-              </GlassCard>
-            </PressableScale>
-          )}
-        />
-      )}
+      ))}
     </Screen>
   );
 }

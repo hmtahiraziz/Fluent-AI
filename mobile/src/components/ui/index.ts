@@ -15,4 +15,5 @@ export { CorrectionCard } from './CorrectionCard';
 export { LanguagePickerModal } from './LanguagePickerModal';
 export { ProfileSection, LevelPickerHorizontal, SettingsRow } from './ProfileSections';
 export { PremiumEmptyState, VocabChip } from './PremiumEmptyState';
-export { PromptChip, SuggestionChips } from './PromptChip';
+export { InsightCard } from './InsightCard';
+export { StitchHeader, UserAvatar } from './StitchHeader';

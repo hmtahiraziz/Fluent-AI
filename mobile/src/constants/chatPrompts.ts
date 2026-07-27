@@ -1,3 +1,9 @@
+export const CHAT_QUICK_REPLIES = [
+  'Fuí al parque',
+  'Hacía mucho sol',
+  '¿Cómo se dice...?',
+] as const;
+
 export const SUGGESTED_PROMPTS = [
   'Hello! I would like to introduce myself.',
   'Can we practice ordering food at a restaurant?',

@@ -4,15 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as api from '../../api/endpoints';
 import { getErrorMessage } from '../../api/client';
-import { languageMeta, MOTIVATIONS, ONBOARDING_STEPS } from '../../config/constants';
+import { languageMeta, MOTIVATIONS } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 import { useOnboarding } from '../../context/OnboardingContext';
 import type { OnboardingStackParamList } from '../../navigation/types';
-import { FluentAILogo } from '../../components/brand/FluentAILogo';
-import { SplitHeadline } from '../../components/ui/SplitHeadline';
 import { OnboardingFooter } from '../../components/ui/OnboardingFooter';
 import { PlanSummaryWidget } from '../../components/widgets/PlanSummaryWidget';
 import { useResponsive } from '../../hooks/useResponsive';
+import { colors } from '../../theme/tokens';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'PlanReady'>;
 
@@ -74,20 +73,19 @@ export function PlanReadyScreen(_props: Props) {
   }
 
   return (
-    <View className="flex-1 bg-mist">
+    <View className="flex-1 bg-canvas">
       <ScrollView
         contentContainerStyle={{
-          paddingTop: insets.top + 16,
+          paddingTop: insets.top + 24,
           paddingHorizontal: horizontalPadding,
           paddingBottom: 24,
           maxWidth: contentMaxWidth,
           alignSelf: 'center',
           width: '100%',
         }}>
-        <FluentAILogo variant="compact" iconSize={32} />
-        <View className="mt-6">
-          <SplitHeadline primary="Your plan is" accent="ready!" />
-        </View>
+        <Text className="text-[28px] font-extrabold leading-9 text-ink">
+          Your plan is <Text style={{ color: colors.accent }}>ready</Text>
+        </Text>
         <Text className="mb-6 mt-3 text-base leading-6 text-ink-muted">
           Everything is tailored to your goals. Let's say hello in your first chat.
         </Text>
@@ -109,8 +107,6 @@ export function PlanReadyScreen(_props: Props) {
       {ready ? (
         <OnboardingFooter
           label="Start first chat"
-          step={ONBOARDING_STEPS}
-          total={ONBOARDING_STEPS}
           loading={starting}
           onPress={startChat}
         />

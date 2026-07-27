@@ -3,39 +3,38 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getErrorMessage } from '../../api/client';
-import { useAuth } from '../../context/AuthContext';
+import * as api from '../../api/endpoints';
 import type { AuthStackParamList } from '../../navigation/types';
 import { Button } from '../../components/Button';
 import { FluentAIBrand } from '../../components/brand/FluentAILogo';
 import { ErrorCard } from '../../components/ui/ErrorCard';
 import { FloatingInput, PasswordStrengthBar } from '../../components/ui/FloatingInput';
-import { InsightCard } from '../../components/ui/InsightCard';
 import { SplitHeadline } from '../../components/ui/SplitHeadline';
 import { useResponsive } from '../../hooks/useResponsive';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'CreateAccount'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'ResetPassword'>;
 
-export function CreateAccountScreen({ navigation }: Props) {
-  const { register } = useAuth();
+export function ResetPasswordScreen({ navigation, route }: Props) {
+  const { email, resetToken } = route.params;
   const insets = useSafeAreaInsets();
   const { horizontalPadding, contentMaxWidth } = useResponsive();
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [confirmError, setConfirmError] = useState('');
 
   function validate() {
     let ok = true;
-    if (!email.includes('@')) {
-      setEmailError('Enter a valid email address');
-      ok = false;
-    } else setEmailError('');
     if (password.length < 8) {
       setPasswordError('Password must be at least 8 characters');
       ok = false;
     } else setPasswordError('');
+    if (password !== confirmPassword) {
+      setConfirmError('Passwords do not match');
+      ok = false;
+    } else setConfirmError('');
     return ok;
   }
 
@@ -44,7 +43,8 @@ export function CreateAccountScreen({ navigation }: Props) {
     if (!validate()) return;
     setLoading(true);
     try {
-      await register(email.trim(), password);
+      await api.resetPassword(resetToken, password);
+      navigation.navigate('SignIn', { resetSuccess: true });
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -55,9 +55,13 @@ export function CreateAccountScreen({ navigation }: Props) {
   return (
     <View className="flex-1 bg-canvas">
       <View
-        className="flex-row items-center"
+        className="flex-row items-center justify-between"
         style={{ paddingTop: insets.top + 8, paddingHorizontal: horizontalPadding }}>
-        <FluentAIBrand iconSize={40} />
+        <Pressable onPress={() => navigation.goBack()} className="py-2 pr-4">
+          <Text className="text-base font-bold text-brand">← Back</Text>
+        </Pressable>
+        <FluentAIBrand iconSize={36} />
+        <View className="w-14" />
       </View>
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -67,27 +71,17 @@ export function CreateAccountScreen({ navigation }: Props) {
           maxWidth: contentMaxWidth,
           alignSelf: 'center',
           width: '100%',
+          flexGrow: 1,
+          justifyContent: 'center',
         }}>
-        <SplitHeadline className="mt-6 mb-2" primary="Create your " accent="account" size="xl" />
+        <SplitHeadline className="mb-2" primary="Set new " accent="password" size="xl" />
         <Text className="mb-8 text-base leading-6 text-ink-muted">
-          Join learners practicing with FluentAI.
+          Create a new password for {email}.
         </Text>
 
         {error ? <ErrorCard message={error} onRetry={onSubmit} /> : null}
         <FloatingInput
-          label="Email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholder="hello@example.com"
-          value={email}
-          onChangeText={t => {
-            setEmail(t);
-            if (emailError) setEmailError('');
-          }}
-          error={emailError}
-        />
-        <FloatingInput
-          label="Create a password"
+          label="New password"
           secureTextEntry
           placeholder="••••••••"
           value={password}
@@ -96,20 +90,20 @@ export function CreateAccountScreen({ navigation }: Props) {
             if (passwordError) setPasswordError('');
           }}
           error={passwordError}
-          hint="Use 8+ characters with numbers and symbols for a stronger password."
         />
         <PasswordStrengthBar password={password} />
-        <Button title="Sign up" variant="lavender" loading={loading} onPress={onSubmit} />
-        <Pressable className="mt-5 py-2" onPress={() => navigation.navigate('SignIn')}>
-          <Text className="text-center text-base text-ink-muted">
-            Already have an account?{' '}
-            <Text className="font-bold text-brand">Sign in</Text>
-          </Text>
-        </Pressable>
-
-        <InsightCard className="mt-8">
-          Create your account to unlock personalized AI tutoring tailored to your goals.
-        </InsightCard>
+        <FloatingInput
+          label="Confirm password"
+          secureTextEntry
+          placeholder="••••••••"
+          value={confirmPassword}
+          onChangeText={t => {
+            setConfirmPassword(t);
+            if (confirmError) setConfirmError('');
+          }}
+          error={confirmError}
+        />
+        <Button title="Reset password" variant="lavender" loading={loading} onPress={onSubmit} />
       </ScrollView>
     </View>
   );

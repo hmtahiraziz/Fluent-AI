@@ -3,48 +3,43 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getErrorMessage } from '../../api/client';
-import { useAuth } from '../../context/AuthContext';
+import * as api from '../../api/endpoints';
 import type { AuthStackParamList } from '../../navigation/types';
 import { Button } from '../../components/Button';
 import { FluentAIBrand } from '../../components/brand/FluentAILogo';
 import { ErrorCard } from '../../components/ui/ErrorCard';
-import { FloatingInput, PasswordStrengthBar } from '../../components/ui/FloatingInput';
-import { InsightCard } from '../../components/ui/InsightCard';
+import { FloatingInput } from '../../components/ui/FloatingInput';
 import { SplitHeadline } from '../../components/ui/SplitHeadline';
 import { useResponsive } from '../../hooks/useResponsive';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'CreateAccount'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>;
 
-export function CreateAccountScreen({ navigation }: Props) {
-  const { register } = useAuth();
+export function ForgotPasswordScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { horizontalPadding, contentMaxWidth } = useResponsive();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-
-  function validate() {
-    let ok = true;
-    if (!email.includes('@')) {
-      setEmailError('Enter a valid email address');
-      ok = false;
-    } else setEmailError('');
-    if (password.length < 8) {
-      setPasswordError('Password must be at least 8 characters');
-      ok = false;
-    } else setPasswordError('');
-    return ok;
-  }
 
   async function onSubmit() {
     setError('');
-    if (!validate()) return;
+    if (!email.includes('@')) {
+      setEmailError('Enter a valid email');
+      return;
+    }
+    setEmailError('');
     setLoading(true);
     try {
-      await register(email.trim(), password);
+      const result = await api.requestPasswordReset(email.trim());
+      if (result.resetToken) {
+        navigation.navigate('ResetPassword', {
+          email: email.trim(),
+          resetToken: result.resetToken,
+        });
+      } else {
+        setError(result.message);
+      }
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -55,9 +50,13 @@ export function CreateAccountScreen({ navigation }: Props) {
   return (
     <View className="flex-1 bg-canvas">
       <View
-        className="flex-row items-center"
+        className="flex-row items-center justify-between"
         style={{ paddingTop: insets.top + 8, paddingHorizontal: horizontalPadding }}>
-        <FluentAIBrand iconSize={40} />
+        <Pressable onPress={() => navigation.goBack()} className="py-2 pr-4">
+          <Text className="text-base font-bold text-brand">← Back</Text>
+        </Pressable>
+        <FluentAIBrand iconSize={36} />
+        <View className="w-14" />
       </View>
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -67,10 +66,12 @@ export function CreateAccountScreen({ navigation }: Props) {
           maxWidth: contentMaxWidth,
           alignSelf: 'center',
           width: '100%',
+          flexGrow: 1,
+          justifyContent: 'center',
         }}>
-        <SplitHeadline className="mt-6 mb-2" primary="Create your " accent="account" size="xl" />
+        <SplitHeadline className="mb-2" primary="Forgot " accent="password?" size="xl" />
         <Text className="mb-8 text-base leading-6 text-ink-muted">
-          Join learners practicing with FluentAI.
+          Enter your email and we'll help you reset your password.
         </Text>
 
         {error ? <ErrorCard message={error} onRetry={onSubmit} /> : null}
@@ -86,30 +87,7 @@ export function CreateAccountScreen({ navigation }: Props) {
           }}
           error={emailError}
         />
-        <FloatingInput
-          label="Create a password"
-          secureTextEntry
-          placeholder="••••••••"
-          value={password}
-          onChangeText={t => {
-            setPassword(t);
-            if (passwordError) setPasswordError('');
-          }}
-          error={passwordError}
-          hint="Use 8+ characters with numbers and symbols for a stronger password."
-        />
-        <PasswordStrengthBar password={password} />
-        <Button title="Sign up" variant="lavender" loading={loading} onPress={onSubmit} />
-        <Pressable className="mt-5 py-2" onPress={() => navigation.navigate('SignIn')}>
-          <Text className="text-center text-base text-ink-muted">
-            Already have an account?{' '}
-            <Text className="font-bold text-brand">Sign in</Text>
-          </Text>
-        </Pressable>
-
-        <InsightCard className="mt-8">
-          Create your account to unlock personalized AI tutoring tailored to your goals.
-        </InsightCard>
+        <Button title="Send reset link" variant="lavender" loading={loading} onPress={onSubmit} />
       </ScrollView>
     </View>
   );

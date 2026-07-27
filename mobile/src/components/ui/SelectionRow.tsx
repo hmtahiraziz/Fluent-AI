@@ -23,21 +23,23 @@ export function SelectionRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      className="mb-3 min-h-[56px] flex-row items-center px-4 py-3"
+      className="mb-3 min-h-[72px] flex-row items-center px-5 py-4"
       style={selected ? selectedRowStyle : rowStyle}>
-      {leading ? <View className="mr-3">{leading}</View> : null}
+      {leading ? (
+        <View
+          className="mr-4 h-12 w-12 items-center justify-center overflow-hidden rounded-full"
+          style={{ backgroundColor: colors.surfaceContainer }}>
+          {leading}
+        </View>
+      ) : null}
       <View className="flex-1">
-        <Text className="text-base font-semibold text-ink">{title}</Text>
+        <Text className="text-lg font-medium text-ink">{title}</Text>
         {subtitle ? (
           <Text className="mt-0.5 text-sm text-ink-muted">{subtitle}</Text>
         ) : null}
       </View>
       {selected ? (
-        <View
-          className="h-7 w-7 items-center justify-center rounded-full"
-          style={{ backgroundColor: colors.primary }}>
-          <Text className="text-xs font-bold text-white">✓</Text>
-        </View>
+        <Text className="text-2xl text-brand">✓</Text>
       ) : null}
     </Pressable>
   );

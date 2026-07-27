@@ -32,6 +32,22 @@ export async function login(email: string, password: string) {
   return data;
 }
 
+export async function requestPasswordReset(email: string) {
+  const { data } = await api.post<{ message: string; resetToken?: string }>(
+    '/api/auth/forgot-password',
+    { email },
+  );
+  return data;
+}
+
+export async function resetPassword(token: string, password: string) {
+  const { data } = await api.post<{ message: string }>('/api/auth/reset-password', {
+    token,
+    password,
+  });
+  return data;
+}
+
 export async function fetchLanguages() {
   const { data } = await api.get<{
     languages: LanguageOption[];

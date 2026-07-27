@@ -18,8 +18,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive } from '../hooks/useResponsive';
 import { useTabBarInset } from './AppTabBar';
-import { AppIconMark } from './brand/AppIconMark';
-import { FluentAIWordmark } from './brand/FluentAILogo';
+import { FluentAILogo } from './brand/FluentAILogo';
 import { Shimmer } from './ui/Shimmer';
 import { colors } from '../theme/tokens';
 
@@ -61,7 +60,7 @@ export function Screen({
 
   const body = (
     <View
-      className={`flex-1 bg-mist ${className}`}
+      className={`flex-1 bg-canvas ${className}`}
       style={{
         paddingTop: topPad,
         paddingBottom: hasTabBar ? 0 : insets.bottom,
@@ -80,7 +79,7 @@ export function Screen({
   if (scroll) {
     const scrollContent = (
       <ScrollView
-        className="flex-1 bg-mist"
+        className="flex-1 bg-canvas"
         contentContainerStyle={{
           flexGrow: 1,
           paddingTop: topPad,
@@ -162,24 +161,21 @@ export function SplashScreen() {
 
   return (
     <View
-      className="flex-1 items-center justify-center"
+      className="flex-1 items-center justify-center bg-canvas"
       style={{
         paddingTop: insets.top,
         paddingBottom: insets.bottom,
-        backgroundColor: colors.lavenderSoft,
       }}>
       <View
-        className="absolute inset-0"
-        style={{
-          backgroundColor: colors.lavender,
-          opacity: 0.35,
-        }}
+        className="absolute -right-16 -top-16 h-64 w-64 rounded-full opacity-10"
+        style={{ backgroundColor: colors.accentPill }}
+      />
+      <View
+        className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full opacity-5"
+        style={{ backgroundColor: colors.secondaryContainer }}
       />
       <Animated.View style={logoStyle} className="items-center">
-        <AppIconMark size={88} />
-        <View className="mt-5">
-          <FluentAIWordmark className="text-3xl" />
-        </View>
+        <FluentAILogo variant="full" iconSize={72} />
       </Animated.View>
       <Animated.Text
         style={textStyle}
@@ -189,6 +185,11 @@ export function SplashScreen() {
       <Animated.View style={[pulseStyle, { marginTop: 48, width: 120 }]}>
         <Shimmer height={4} borderRadius={4} />
       </Animated.View>
+      <Animated.Text
+        style={[textStyle, { marginTop: 16 }]}
+        className="text-xs font-medium uppercase tracking-widest text-ink-faint">
+        Loading
+      </Animated.Text>
     </View>
   );
 }

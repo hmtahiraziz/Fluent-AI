@@ -17,22 +17,19 @@ export function FluentAILogo({
   style,
 }: FluentAILogoProps) {
   const resolvedIconSize =
-    iconSize ?? (variant === 'compact' ? 32 : variant === 'full' ? 56 : 0);
+    iconSize ?? (variant === 'compact' ? 36 : variant === 'full' ? 56 : 0);
   const titleSize =
-    variant === 'compact' ? 'text-xl' : variant === 'full' ? 'text-3xl' : 'text-2xl';
+    variant === 'compact' ? 'text-2xl' : variant === 'full' ? 'text-3xl' : 'text-2xl';
 
   return (
     <View
       accessibilityRole="header"
-      style={[{ flexDirection: 'row', alignItems: 'center', gap: 12 }, style]}>
+      style={[{ flexDirection: 'row', alignItems: 'center', gap: 10 }, style]}>
       {showIcon && resolvedIconSize > 0 ? (
         <AppIconMark size={resolvedIconSize} />
       ) : null}
       <View>
-        <Text className={`${titleSize} font-extrabold text-ink`}>
-          Fluent
-          <Text className={`${titleSize} font-extrabold text-accent`}>AI</Text>
-        </Text>
+        <Text className={`${titleSize} font-extrabold text-ink`}>FluentAI</Text>
         {variant === 'full' ? (
           <Text className="mt-0.5 text-sm font-medium text-ink-muted">
             Your personal language tutor
@@ -46,7 +43,18 @@ export function FluentAILogo({
 export function FluentAIWordmark({ className = '' }: { className?: string }) {
   return (
     <Text className={`font-extrabold text-ink ${className}`} accessibilityLabel={APP_NAME}>
-      Fluent<Text className={`font-extrabold text-accent ${className}`}>AI</Text>
+      FluentAI
     </Text>
   );
+}
+
+/** Compact icon + name row for headers and auth screens */
+export function FluentAIBrand({
+  iconSize = 40,
+  style,
+}: {
+  iconSize?: number;
+  style?: ViewStyle;
+}) {
+  return <FluentAILogo variant="compact" iconSize={iconSize} style={style} />;
 }
