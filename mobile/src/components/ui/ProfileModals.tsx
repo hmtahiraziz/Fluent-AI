@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -10,114 +10,251 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../Button';
-import { LevelPickerHorizontal } from './ProfileSections';
-import { CEFR_LEVELS, LANGUAGES, type CefrLevel } from '../../config/constants';
-import { languageMeta } from '../../config/constants';
+import { CefrLevelCard } from './CefrLevelCard';
+import { DailyGoalOptionCard } from './DailyGoalOptionCard';
+import { LanguageOptionCard } from './LanguageOptionCard';
+import { ProfileSection } from './ProfileSections';
+import {
+  CEFR_LEVELS,
+  CEFR_LEVEL_META,
+  DAILY_GOAL_OPTIONS,
+  LANGUAGES,
+  languageMeta,
+  type CefrLevel,
+} from '../../config/constants';
 import { LanguagePickerModal } from './LanguagePickerModal';
 import { colors } from '../../theme/tokens';
 
 type SheetProps = {
   visible: boolean;
   title: string;
+  subtitle?: string;
   onClose: () => void;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 };
 
-function SettingsSheet({ visible, title, onClose, children }: SheetProps) {
+function SettingsSheet({
+  visible,
+  title,
+  subtitle,
+  onClose,
+  children,
+  footer,
+}: SheetProps) {
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View className="flex-1 justify-end bg-ink/40">
         <View
-          className="max-h-[90%] rounded-t-[32px] bg-surface px-5 pt-4"
+          className="max-h-[94%] rounded-t-[32px] bg-canvas px-5 pt-3"
           style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
-          <View className="mb-4 flex-row items-center justify-between">
-            <Text className="text-xl font-bold text-ink">{title}</Text>
-            <Pressable onPress={onClose} className="px-2 py-1">
-              <Text className="text-base font-bold text-brand">Done</Text>
-            </Pressable>
+          <View className="mb-4 items-center">
+            <View
+              className="mb-4 h-1 w-10 rounded-full"
+              style={{ backgroundColor: colors.border }}
+            />
+            <View className="w-full flex-row items-start justify-between">
+              <View className="flex-1 pr-4">
+                <Text className="text-2xl font-bold text-ink">{title}</Text>
+                {subtitle ? (
+                  <Text className="mt-1 text-base leading-6 text-ink-muted">{subtitle}</Text>
+                ) : null}
+              </View>
+              <Pressable onPress={onClose} className="px-2 py-1">
+                <Text className="text-base font-bold text-brand">Cancel</Text>
+              </Pressable>
+            </View>
           </View>
-          <ScrollView showsVerticalScrollIndicator={false}>{children}</ScrollView>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+            {children}
+          </ScrollView>
+          {footer}
         </View>
       </View>
     </Modal>
   );
 }
 
-type PersonalInfoModalProps = {
-  visible: boolean;
+function FormField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View className="mb-4">
+      <Text className="mb-2 text-xs font-bold uppercase tracking-wider text-ink-muted">
+        {label}
+      </Text>
+      {children}
+    </View>
+  );
+}
+
+export type PersonalInfoDraft = {
+  displayName: string;
   email: string;
+  nativeLanguage: string;
   targetLanguage: string;
   level: CefrLevel;
   dailyGoal: number;
-  onChangeTarget: (code: string) => void;
-  onChangeLevel: (level: CefrLevel) => void;
-  onChangeDailyGoal: (minutes: number) => void;
+};
+
+type PersonalInfoModalProps = {
+  visible: boolean;
+  draft: PersonalInfoDraft;
+  onApply: (draft: PersonalInfoDraft) => void;
   onClose: () => void;
 };
 
 export function PersonalInfoModal({
   visible,
-  email,
-  targetLanguage,
-  level,
-  dailyGoal,
-  onChangeTarget,
-  onChangeLevel,
-  onChangeDailyGoal,
+  draft,
+  onApply,
   onClose,
 }: PersonalInfoModalProps) {
-  const [langOpen, setLangOpen] = React.useState(false);
-  const target = languageMeta(targetLanguage);
+  const [local, setLocal] = useState(draft);
+  const [langPicker, setLangPicker] = useState<'native' | 'target' | null>(null);
+
+  const native = languageMeta(local.nativeLanguage);
+  const target = languageMeta(local.targetLanguage);
+
+  useEffect(() => {
+    if (visible) setLocal(draft);
+  }, [visible, draft]);
+
+  function applyChanges() {
+    onApply(local);
+    onClose();
+  }
 
   return (
     <>
-      <SettingsSheet visible={visible} title="Personal Information" onClose={onClose}>
-        <Text className="mb-2 ml-1 text-sm font-bold text-ink-muted">Email</Text>
-        <TextInput
-          className="mb-4 rounded-full border border-border bg-white px-5 py-3 text-base text-ink-muted"
-          value={email}
-          editable={false}
-        />
-        <Text className="mb-2 ml-1 text-sm font-bold text-ink-muted">Target language</Text>
-        <Pressable
-          onPress={() => setLangOpen(true)}
-          className="mb-4 flex-row items-center justify-between rounded-full border border-border bg-white px-5 py-3">
-          <Text className="text-base text-ink">
-            {target.flag} {target.label}
-          </Text>
-          <Text className="text-lg text-ink-faint">›</Text>
-        </Pressable>
-        <Text className="mb-2 ml-1 text-sm font-bold text-ink-muted">Learning level</Text>
-        <LevelPickerHorizontal selected={level} levels={CEFR_LEVELS} onSelect={onChangeLevel} />
-        <Text className="mb-2 ml-1 text-sm font-bold text-ink-muted">Daily goal (minutes)</Text>
-        <View className="mb-4 flex-row flex-wrap gap-2">
-          {[5, 10, 15, 20].map(m => (
-            <Pressable
-              key={m}
-              onPress={() => onChangeDailyGoal(m)}
-              className="rounded-full px-5 py-2"
-              style={{
-                backgroundColor:
-                  dailyGoal === m ? colors.secondaryContainer : colors.surfaceContainer,
-              }}>
-              <Text
-                className="text-sm font-bold"
+      <SettingsSheet
+        visible={visible}
+        title="Personal Information"
+        subtitle="Update your profile and learning preferences."
+        onClose={onClose}
+        footer={
+          <Button
+            title="Apply Changes"
+            variant="lavender"
+            className="mt-4"
+            onPress={applyChanges}
+          />
+        }>
+        <ProfileSection title="Account">
+          <View className="px-2 pb-2">
+            <FormField label="Display name">
+              <TextInput
+                className="rounded-2xl border px-4 py-3.5 text-base text-ink"
                 style={{
-                  color: dailyGoal === m ? colors.onSecondaryContainer : colors.inkMuted,
-                }}>
-                {m} min
-              </Text>
-            </Pressable>
-          ))}
+                  borderColor: colors.border,
+                  backgroundColor: colors.surfaceContainerLow,
+                }}
+                value={local.displayName}
+                onChangeText={displayName => setLocal(prev => ({ ...prev, displayName }))}
+                placeholder="Your name"
+                placeholderTextColor={colors.inkMuted}
+                autoCapitalize="words"
+              />
+            </FormField>
+            <FormField label="Email">
+              <View
+                className="flex-row items-center gap-3 rounded-2xl px-4 py-3.5"
+                style={{ backgroundColor: colors.surfaceContainerLow }}>
+                <Text className="text-lg">✉️</Text>
+                <Text className="flex-1 text-base text-ink-muted" numberOfLines={1}>
+                  {local.email}
+                </Text>
+              </View>
+            </FormField>
+          </View>
+        </ProfileSection>
+
+        <ProfileSection title="Languages">
+          <View className="gap-3 p-2">
+            <LanguageOptionCard
+              label={native.label}
+              nativeLabel="Native language"
+              flag={native.flag}
+              embedded
+              onPress={() => setLangPicker('native')}
+              trailing={<Text className="text-xl text-ink-faint">›</Text>}
+            />
+            <LanguageOptionCard
+              label={target.label}
+              nativeLabel="Learning language"
+              flag={target.flag}
+              embedded
+              onPress={() => setLangPicker('target')}
+              trailing={<Text className="text-xl text-ink-faint">›</Text>}
+            />
+          </View>
+        </ProfileSection>
+
+        <ProfileSection title="Learning level">
+          <View className="p-2">
+            {CEFR_LEVELS.map(level => {
+              const meta = CEFR_LEVEL_META[level];
+              return (
+                <CefrLevelCard
+                  key={level}
+                  compact
+                  level={level}
+                  title={meta.title}
+                  subtitle={meta.subtitle}
+                  selected={local.level === level}
+                  onPress={() => setLocal(prev => ({ ...prev, level }))}
+                />
+              );
+            })}
+          </View>
+        </ProfileSection>
+
+        <ProfileSection title="Daily goal">
+          <View className="gap-3 p-2">
+            {DAILY_GOAL_OPTIONS.map(option => (
+              <DailyGoalOptionCard
+                key={option.minutes}
+                label={option.label}
+                minutes={option.minutes}
+                icon={option.icon}
+                selected={local.dailyGoal === option.minutes}
+                onPress={() => setLocal(prev => ({ ...prev, dailyGoal: option.minutes }))}
+              />
+            ))}
+          </View>
+        </ProfileSection>
+
+        <View
+          className="mb-2 mt-2 flex-row items-start gap-3 rounded-[24px] p-4"
+          style={{ backgroundColor: colors.insight }}>
+          <Text className="text-lg">💡</Text>
+          <Text className="flex-1 text-sm leading-5 text-tertiary">
+            Tap <Text className="font-bold">Save Changes</Text> on your profile to sync these
+            updates with your account.
+          </Text>
         </View>
       </SettingsSheet>
+
       <LanguagePickerModal
-        visible={langOpen}
+        visible={langPicker === 'native'}
+        title="Native language"
         languages={LANGUAGES}
-        selectedCode={targetLanguage}
-        onSelect={onChangeTarget}
-        onClose={() => setLangOpen(false)}
+        selectedCode={local.nativeLanguage}
+        onSelect={code => setLocal(prev => ({ ...prev, nativeLanguage: code }))}
+        onClose={() => setLangPicker(null)}
+      />
+      <LanguagePickerModal
+        visible={langPicker === 'target'}
+        title="Learning language"
+        languages={LANGUAGES}
+        selectedCode={local.targetLanguage}
+        onSelect={code => setLocal(prev => ({ ...prev, targetLanguage: code }))}
+        onClose={() => setLangPicker(null)}
       />
     </>
   );
@@ -169,6 +306,7 @@ export function EmailNotificationsModal({
           thumbColor={colors.surface}
         />
       </View>
+      <Button title="Done" variant="lavender" className="mt-2" onPress={onClose} />
     </SettingsSheet>
   );
 }
@@ -204,6 +342,7 @@ export function AppearanceModal({ visible, selected, onSelect, onClose }: Appear
           ) : null}
         </Pressable>
       ))}
+      <Button title="Done" variant="lavender" className="mt-2" onPress={onClose} />
     </SettingsSheet>
   );
 }

@@ -9,19 +9,23 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../api/endpoints';
 import type { VocabularyItem } from '../api/types';
 import { getErrorMessage } from '../api/client';
+import { useProfile } from '../hooks/useProfile';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
 import { ErrorCard } from '../components/ui/ErrorCard';
 import { PressableScale } from '../components/ui/PressableScale';
+import { ProfileAvatar } from '../components/ui/ProfileAvatar';
 import { SkeletonList } from '../components/ui/Shimmer';
-import { FluentAIBrand } from '../components/brand/FluentAILogo';
+import { StreakBadge } from '../components/ui/StreakBadge';
 import { TutorAvatar } from '../components/brand/TutorAvatar';
+import { getStreakDisplay } from '../services/streakStorage';
 import type { MainTabParamList } from '../navigation/types';
 import { useResponsive } from '../hooks/useResponsive';
 import { colors } from '../theme/tokens';
@@ -50,8 +54,8 @@ const STATUS_STYLES: Record<
   { bg: string; text: string; label: string }
 > = {
   difficult: {
-    bg: '#ebe2c6',
-    text: '#4c4732',
+    bg: colors.tertiaryFixed,
+    text: colors.onTertiaryFixedVariant,
     label: 'Difficult',
   },
   new: {
@@ -61,18 +65,19 @@ const STATUS_STYLES: Record<
   },
   mastered: {
     bg: colors.primarySoft,
-    text: colors.accentDark,
+    text: colors.onPrimaryFixedVariant,
     label: 'Mastered',
   },
 };
 
-function VocabHeader() {
+function VocabHeader({ streakLabel }: { streakLabel: string }) {
   const insets = useSafeAreaInsets();
   const { horizontalPadding } = useResponsive();
+  const { initials, avatarUri, resolvedName, reload } = useProfile();
 
   return (
     <View
-      className="flex-row items-center justify-between bg-canvas"
+      className="flex-row items-center justify-between gap-2 bg-canvas"
       style={{
         marginTop: -(insets.top + 8),
         paddingTop: insets.top + 8,
@@ -80,8 +85,50 @@ function VocabHeader() {
         paddingHorizontal: horizontalPadding,
         paddingBottom: 8,
       }}>
-      <FluentAIBrand iconSize={40} />
-      <Text className="text-sm font-bold text-brand">🔥 7 Days</Text>
+      <View className="min-w-0 flex-1 flex-row items-center gap-3">
+        <ProfileAvatar
+          uri={avatarUri}
+          initials={initials}
+          name={resolvedName}
+          size="sm"
+        />
+        <Text className="text-2xl font-bold text-brand">FluentAI</Text>
+      </View>
+      <StreakBadge label={streakLabel} />
+    </View>
+  );
+}
+
+function SearchBar({
+  value,
+  onChangeText,
+}: {
+  value: string;
+  onChangeText: (text: string) => void;
+}) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <View className="relative mt-8 w-full">
+      <Text
+        className="absolute left-4 top-[14px] z-10 text-lg"
+        style={{ color: colors.inkMuted }}>
+        🔍
+      </Text>
+      <TextInput
+        className="h-[52px] rounded-full border pl-12 pr-6 text-base text-ink"
+        style={{
+          backgroundColor: colors.surfaceContainerLow,
+          borderColor: focused ? `${colors.secondary}4D` : colors.border,
+          borderWidth: focused ? 2 : 1,
+        }}
+        placeholder="Search your vocabulary..."
+        placeholderTextColor={colors.inkFaint}
+        value={value}
+        onChangeText={onChangeText}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      />
     </View>
   );
 }
@@ -97,7 +144,8 @@ function FilterChipRow({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
+      contentContainerStyle={{ gap: 8, paddingVertical: 8 }}
+      className="mt-4">
       {FILTER_CHIPS.map(chip => {
         const isActive = active === chip.key;
         return (
@@ -109,7 +157,7 @@ function FilterChipRow({
               }}>
               <Text
                 className="text-sm font-bold"
-                style={{ color: isActive ? colors.surface : colors.inkMuted }}>
+                style={{ color: isActive ? colors.onSecondary : colors.inkMuted }}>
                 {chip.label}
               </Text>
             </View>
@@ -129,57 +177,78 @@ function WordCard({
   onPress: () => void;
   onSpeak: () => void;
 }) {
+  const [speaking, setSpeaking] = useState(false);
   const status = getWordStatus(item);
   const badge = STATUS_STYLES[status];
   const subtitle = item.translation ?? item.note ?? 'Saved from tutoring';
 
+  const handleSpeak = () => {
+    setSpeaking(true);
+    onSpeak();
+    setTimeout(() => setSpeaking(false), 200);
+  };
+
   return (
-    <PressableScale onPress={onPress}>
-      <View
-        className="mb-4 flex-row items-start justify-between rounded-[24px] p-4"
-        style={[{ backgroundColor: colors.surface }, softShadow()]}>
-        <View className="flex-1 pr-3">
-          <Text className="text-2xl font-bold text-ink">{item.phrase}</Text>
-          <Text className="mt-1 text-base text-ink-muted" numberOfLines={2}>
-            {subtitle}
-          </Text>
-          <View
-            className="mt-3 self-start rounded-full px-3 py-1"
-            style={{ backgroundColor: badge.bg }}>
-            <Text className="text-xs font-medium" style={{ color: badge.text }}>
-              {badge.label}
+    <View className="mb-4 px-0.5 pt-1" style={{ overflow: 'visible' }}>
+      <PressableScale onPress={onPress} style={{ overflow: 'visible' }}>
+        <View
+          className="flex-row items-start justify-between rounded-[24px] p-4"
+          style={[{ backgroundColor: colors.surface }, softShadow(3)]}>
+          <View className="flex-1 pr-3">
+            <Text className="text-2xl font-bold text-ink">{item.phrase}</Text>
+            <Text className="mt-1 text-base text-ink-muted" numberOfLines={2}>
+              {subtitle}
             </Text>
+            <View
+              className="mt-3 self-start rounded-full px-3 py-1"
+              style={{ backgroundColor: badge.bg }}>
+              <Text className="text-xs font-medium" style={{ color: badge.text }}>
+                {badge.label}
+              </Text>
+            </View>
           </View>
+          <Pressable
+            onPress={e => {
+              e.stopPropagation?.();
+              handleSpeak();
+            }}
+            className="h-10 w-10 items-center justify-center rounded-full"
+            style={{
+              backgroundColor: speaking ? colors.accentPill : `${colors.secondaryContainer}33`,
+            }}>
+            <Text
+              className="text-base"
+              style={{ color: speaking ? colors.onSecondaryContainer : colors.secondary }}>
+              🔊
+            </Text>
+          </Pressable>
         </View>
-        <Pressable
-          onPress={e => {
-            e.stopPropagation?.();
-            onSpeak();
-          }}
-          className="h-10 w-10 items-center justify-center rounded-full"
-          style={{ backgroundColor: `${colors.secondaryContainer}33` }}>
-          <Text className="text-base" style={{ color: colors.secondary }}>
-            🔊
-          </Text>
-        </Pressable>
-      </View>
-    </PressableScale>
+      </PressableScale>
+    </View>
   );
 }
 
-function AiInsightCard({ masteredCount, difficultCount }: { masteredCount: number; difficultCount: number }) {
+function AiInsightCard({
+  masteredCount,
+  difficultCount,
+  fullWidth,
+}: {
+  masteredCount: number;
+  difficultCount: number;
+  fullWidth?: boolean;
+}) {
   return (
     <View
-      className="mb-4 flex-row items-center gap-4 rounded-[24px] p-4"
+      className={`mb-4 flex-row items-center gap-4 rounded-[24px] p-4 ${fullWidth ? 'w-full' : ''}`}
       style={{ backgroundColor: colors.insight }}>
       <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
         <Text className="text-xl">✨</Text>
       </View>
       <View className="flex-1">
-        <Text className="text-sm font-bold" style={{ color: '#1f1c0a' }}>
+        <Text className="text-sm font-bold" style={{ color: colors.onTertiaryFixed }}>
           AI Learning Insight
         </Text>
-        <Text className="mt-1 text-base leading-6" style={{ color: '#4c4732' }}>
+        <Text className="mt-1 text-base leading-6" style={{ color: colors.onTertiaryFixedVariant }}>
           {masteredCount > 0
             ? `You've mastered ${masteredCount} word${masteredCount === 1 ? '' : 's'} this week! Try focusing on your 'Difficult' list to maintain your streak.`
             : difficultCount > 0
@@ -200,22 +269,27 @@ function VocabEmptyState({ onExplore }: { onExplore: () => void }) {
         <TutorAvatar size="lg" />
       </View>
       <Text className="text-center text-[32px] font-bold text-ink">No words yet?</Text>
-      <Text className="mt-3 max-w-xs text-center text-base leading-6 text-ink-muted">
+      <Text className="mt-2 max-w-xs text-center text-base leading-6 text-ink-muted">
         Start your journey by exploring new lessons or adding phrases you want to learn.
       </Text>
-      <Button
-        title="Explore Lessons"
-        variant="lavender"
-        className="mt-8 w-full max-w-xs"
-        onPress={onExplore}
-      />
+      <PressableScale onPress={onExplore} className="mt-8 w-full max-w-xs">
+        <View
+          className="h-[52px] items-center justify-center rounded-full px-8"
+          style={{ backgroundColor: colors.secondary }}>
+          <Text className="text-sm font-bold" style={{ color: colors.onSecondary }}>
+            Explore Lessons
+          </Text>
+        </View>
+      </PressableScale>
     </View>
   );
 }
 
 export function VocabularyScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  const insets = useSafeAreaInsets();
   const { isTablet } = useResponsive();
+  const { reload } = useProfile();
   const [items, setItems] = useState<VocabularyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -223,6 +297,7 @@ export function VocabularyScreen() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
   const [selected, setSelected] = useState<VocabularyItem | null>(null);
+  const [streakLabel, setStreakLabel] = useState('Start today');
 
   const load = useCallback(async () => {
     try {
@@ -241,7 +316,9 @@ export function VocabularyScreen() {
     useCallback(() => {
       setLoading(true);
       void load();
-    }, [load]),
+      void reload();
+      void getStreakDisplay().then(setStreakLabel);
+    }, [load, reload]),
   );
 
   const filtered = useMemo(() => {
@@ -282,34 +359,15 @@ export function VocabularyScreen() {
 
   const listHeader = (
     <View className="pb-2">
-      <View className="relative mt-6">
-        <Text
-          className="absolute left-4 top-[14px] z-10 text-lg"
-          style={{ color: colors.inkMuted }}>
-          🔍
-        </Text>
-        <TextInput
-          className="h-[52px] rounded-full border pl-12 pr-6 text-base text-ink"
-          style={{
-            backgroundColor: colors.surfaceContainerLow,
-            borderColor: colors.border,
-          }}
-          placeholder="Search your vocabulary..."
-          placeholderTextColor={colors.inkFaint}
-          value={query}
-          onChangeText={setQuery}
-        />
-      </View>
-
+      <SearchBar value={query} onChangeText={setQuery} />
       <FilterChipRow active={filter} onSelect={setFilter} />
-
       {error ? <ErrorCard message={error} onRetry={load} /> : null}
     </View>
   );
 
   if (loading && !refreshing) {
     return (
-      <Screen hasTabBar scroll header={<VocabHeader />}>
+      <Screen hasTabBar scroll header={<VocabHeader streakLabel={streakLabel} />}>
         {listHeader}
         <SkeletonList count={4} />
       </Screen>
@@ -320,22 +378,26 @@ export function VocabularyScreen() {
   const showNoResults = !showEmpty && filtered.length === 0;
 
   return (
-    <Screen hasTabBar className="flex-1" header={<VocabHeader />}>
+    <Screen hasTabBar className="flex-1" header={<VocabHeader streakLabel={streakLabel} />}>
       <FlatList
+        style={{ overflow: 'visible' }}
         data={filtered}
         keyExtractor={i => i.id}
         renderItem={({ item }) => (
-          <WordCard
-            item={item}
-            onPress={() => setSelected(item)}
-            onSpeak={() => setSelected(item)}
-          />
+          <View style={isTablet ? { flex: 1, overflow: 'visible' } : { overflow: 'visible' }}>
+            <WordCard
+              item={item}
+              onPress={() => setSelected(item)}
+              onSpeak={() => setSelected(item)}
+            />
+          </View>
         )}
         ListHeaderComponent={listHeader}
         numColumns={isTablet ? 2 : 1}
         key={isTablet ? 'two-col' : 'one-col'}
-        columnWrapperStyle={isTablet ? { gap: 16 } : undefined}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 8 }}
+        columnWrapperStyle={isTablet ? { gap: 16, overflow: 'visible' } : undefined}
+        contentContainerStyle={{ flexGrow: 1, paddingTop: 4, paddingBottom: 16, overflow: 'visible' }}
+        removeClippedSubviews={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
@@ -352,6 +414,7 @@ export function VocabularyScreen() {
             <AiInsightCard
               masteredCount={stats.masteredCount}
               difficultCount={stats.difficultCount}
+              fullWidth={isTablet}
             />
           ) : null
         }
@@ -375,7 +438,8 @@ export function VocabularyScreen() {
           style={{ backgroundColor: 'rgba(27,28,27,0.4)' }}
           onPress={() => setSelected(null)}>
           <Pressable
-            className="rounded-t-[32px] bg-surface p-6"
+            className="rounded-t-[32px] bg-surface px-6 pt-6"
+            style={{ paddingBottom: Math.max(insets.bottom, 24) }}
             onPress={e => e.stopPropagation()}>
             {selected ? (
               <>
@@ -396,14 +460,23 @@ export function VocabularyScreen() {
                     {STATUS_STYLES[getWordStatus(selected)].label}
                   </Text>
                 </View>
-                <View className="mt-6 flex-row gap-2">
-                  <Button title="Close" variant="outline" className="flex-1" onPress={() => setSelected(null)} />
-                  <Button
-                    title="Remove"
-                    variant="danger"
-                    className="flex-1"
-                    onPress={() => void onDelete(selected.id)}
-                  />
+                <View className="mt-6 flex-row items-stretch gap-3">
+                  <View className="min-w-0 flex-1">
+                    <Button
+                      title="Cancel"
+                      variant="outline"
+                      className="w-full"
+                      onPress={() => setSelected(null)}
+                    />
+                  </View>
+                  <View className="min-w-0 flex-1">
+                    <Button
+                      title="Remove"
+                      variant="danger"
+                      className="w-full"
+                      onPress={() => void onDelete(selected.id)}
+                    />
+                  </View>
                 </View>
               </>
             ) : null}

@@ -22,7 +22,7 @@ export function CorrectionCard({ correction, onSave, onPractice, saving }: Props
         borderColor: colors.insightBorder,
       }}>
       <View className="mb-3 flex-row items-center gap-2">
-        <Text className="text-base">✨</Text>
+        <Text className="text-base">🔧</Text>
         <Text
           className="text-sm font-bold uppercase tracking-wider"
           style={{ color: colors.tertiary }}>

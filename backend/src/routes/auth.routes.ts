@@ -10,6 +10,10 @@ import {
   getSettingsForUser,
   serializeSettings,
 } from "../services/settings.service";
+import {
+  createPasswordResetToken,
+  resetPasswordWithToken,
+} from "../services/passwordReset.service";
 
 const registerSchema = z.object({
   email: z.string().email().transform((e) => e.toLowerCase().trim()),
@@ -19,6 +23,15 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email().transform((e) => e.toLowerCase().trim()),
   password: z.string().min(1),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email().transform((e) => e.toLowerCase().trim()),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 export const authRouter = Router();
@@ -114,6 +127,26 @@ authRouter.post("/login", async (req, res, next) => {
       user: { id: user.id, email: user.email },
       settings: settings ? serializeSettings(settings) : null,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+authRouter.post("/forgot-password", async (req, res, next) => {
+  try {
+    const body = forgotPasswordSchema.parse(req.body);
+    const result = await createPasswordResetToken(body.email);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+authRouter.post("/reset-password", async (req, res, next) => {
+  try {
+    const body = resetPasswordSchema.parse(req.body);
+    const result = await resetPasswordWithToken(body.token, body.password);
+    res.json(result);
   } catch (e) {
     next(e);
   }

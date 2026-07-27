@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
-  Keyboard,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   Text,
   View,
@@ -24,19 +21,82 @@ import { CorrectionCard } from '../components/ui/CorrectionCard';
 import { ErrorCard } from '../components/ui/ErrorCard';
 import { SkeletonList } from '../components/ui/Shimmer';
 import { SuggestionChips } from '../components/ui/PromptChip';
-import { TypingIndicator } from '../components/ui/TypingIndicator';
+import { StreakBadge } from '../components/ui/StreakBadge';
 import { SUGGESTED_PROMPTS } from '../constants/chatPrompts';
-import { LAST_PRACTICE_KEY, PENDING_CHAT_PROMPT_KEY } from '../config/constants';
+import { PENDING_CHAT_PROMPT_KEY } from '../config/constants';
+import { formatStreakLabel, getStreakDisplay, recordPracticeDay } from '../services/streakStorage';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import type { RootStackParamList } from '../navigation/types';
 import { useResponsive } from '../hooks/useResponsive';
 import { colors } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
+function ChatHeader({
+  onBack,
+  streakLabel,
+  horizontalPad,
+  topInset,
+  compact,
+}: {
+  onBack: () => void;
+  streakLabel: string;
+  horizontalPad: number;
+  topInset: number;
+  compact: boolean;
+}) {
+  return (
+    <View
+      className="flex-row items-center justify-between bg-canvas"
+      style={{
+        paddingTop: topInset + 8,
+        paddingBottom: 8,
+        paddingHorizontal: horizontalPad,
+      }}>
+      <Pressable
+        onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        className="mr-2 h-10 w-10 items-center justify-center rounded-full"
+        style={{ backgroundColor: colors.surfaceContainer }}>
+        <Text className="text-xl font-bold text-brand">←</Text>
+      </Pressable>
+
+      <View className="min-w-0 flex-1 flex-row items-center gap-3">
+        <View
+          className="overflow-hidden rounded-full border"
+          style={{ borderColor: colors.border }}>
+          <TutorAvatar size="sm" />
+        </View>
+        <View className="min-w-0 flex-1">
+          <Text className="text-2xl font-bold text-brand" numberOfLines={1}>
+            AI Tutor
+          </Text>
+          <View className="flex-row items-center gap-1">
+            <View className="h-2 w-2 rounded-full bg-success" />
+            <Text className="text-xs font-medium text-ink-muted">Online</Text>
+          </View>
+        </View>
+      </View>
+
+      <View className="ml-2 flex-row items-center gap-2">
+        {!compact ? (
+          <Pressable
+            className="h-10 w-10 items-center justify-center rounded-full"
+            style={{ backgroundColor: colors.surfaceContainer }}>
+            <Text className="text-base text-brand">🔍</Text>
+          </Pressable>
+        ) : null}
+        <StreakBadge label={streakLabel} compact />
+      </View>
+    </View>
+  );
+}
+
 export function ChatScreen({ navigation, route }: Props) {
   const { conversationId, guided } = route.params;
   const insets = useSafeAreaInsets();
-  const { contentMaxWidth, horizontalPadding } = useResponsive();
+  const { contentMaxWidth, horizontalPadding, isCompact } = useResponsive();
   const listRef = useRef<FlatList>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -46,9 +106,22 @@ export function ChatScreen({ navigation, route }: Props) {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [guidedDone, setGuidedDone] = useState(false);
+  const [streakLabel, setStreakLabel] = useState('Start today');
   const [vocabModal, setVocabModal] = useState<{ word: string; translation?: string } | null>(
     null,
   );
+
+  const scrollToBottom = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
+
+  const onKeyboardShow = useCallback(() => {
+    setTimeout(() => scrollToBottom(true), 80);
+  }, [scrollToBottom]);
+
+  const keyboardHeight = useKeyboardInset(onKeyboardShow);
 
   useEffect(() => {
     setLoading(true);
@@ -58,18 +131,7 @@ export function ChatScreen({ navigation, route }: Props) {
   }, [conversationId]);
 
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, () => {
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {});
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
+    void getStreakDisplay().then(setStreakLabel);
   }, []);
 
   const load = useCallback(async () => {
@@ -129,19 +191,20 @@ export function ChatScreen({ navigation, route }: Props) {
       createdAt: new Date().toISOString(),
     };
     setMessages(prev => [...prev, optimistic]);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+    scrollToBottom(true);
     try {
       const result = await api.sendChatMessage(conversationId, text);
       setMessages(prev => {
         const withoutTemp = prev.filter(m => m.id !== optimistic.id);
         return [...withoutTemp, result.userMessage, result.assistantMessage];
       });
-      await AsyncStorage.setItem(LAST_PRACTICE_KEY, new Date().toDateString());
+      const count = await recordPracticeDay();
+      setStreakLabel(formatStreakLabel(count));
       if (guided && !guidedDone) {
         setCelebrate(true);
         setGuidedDone(true);
       }
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      scrollToBottom(true);
     } catch (e) {
       setMessages(prev => prev.filter(m => m.id !== optimistic.id));
       if (!textOverride) setInput(text);
@@ -168,150 +231,109 @@ export function ChatScreen({ navigation, route }: Props) {
   }
 
   const sidePad = horizontalPadding;
+  const keyboardVisible = keyboardHeight > 0;
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.canvas }}>
-      {/* Header */}
-      <View
-        className="flex-row items-center justify-between px-4 py-3"
-        style={{
-          paddingTop: insets.top + 8,
-          backgroundColor: colors.canvas,
-        }}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          className="mr-2 h-10 w-10 items-center justify-center rounded-full"
-          style={{ backgroundColor: colors.surfaceContainer }}>
-          <Text className="text-xl font-bold text-brand">←</Text>
-        </Pressable>
-        <View className="flex-1 flex-row items-center gap-3">
-          <View
-            className="overflow-hidden rounded-full border"
-            style={{ borderColor: colors.border }}>
-            <TutorAvatar size="sm" />
-          </View>
-          <View className="flex-1">
-            <Text className="text-2xl font-bold text-brand" numberOfLines={1}>
-              AI Tutor
-            </Text>
-            <View className="flex-row items-center gap-1">
-              <View className="h-2 w-2 rounded-full bg-success" />
-              <Text className="text-xs font-medium text-ink-muted">Online</Text>
-            </View>
-          </View>
-        </View>
-        <View className="flex-row items-center gap-2">
-          <Pressable
-            className="h-10 w-10 items-center justify-center rounded-full"
-            style={{ backgroundColor: colors.surfaceContainer }}>
-            <Text className="text-base text-brand">🔍</Text>
-          </Pressable>
-          <View
-            className="rounded-full px-3 py-1"
-            style={{ backgroundColor: colors.primarySoft }}>
-            <Text className="text-sm font-bold" style={{ color: colors.primaryDark }}>
-              🔥 7 Days
-            </Text>
-          </View>
-        </View>
-      </View>
+      <ChatHeader
+        onBack={() => navigation.goBack()}
+        streakLabel={streakLabel}
+        horizontalPad={sidePad}
+        topInset={insets.top}
+        compact={isCompact}
+      />
 
-      {/* Messages — flex area */}
-      {loading ? (
-        <View className="flex-1 px-4 pt-4" style={{ paddingHorizontal: sidePad }}>
-          <SkeletonList count={5} />
-        </View>
-      ) : (
-        <FlatList
-          ref={listRef}
-          className="flex-1"
-          contentContainerStyle={{
-            paddingHorizontal: sidePad,
-            paddingTop: 16,
-            paddingBottom: 16,
-            maxWidth: contentMaxWidth,
-            alignSelf: 'center',
-            width: '100%',
-            flexGrow: messages.length === 0 ? 1 : undefined,
-          }}
-          data={messages}
-          keyExtractor={item => item.id}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          onContentSizeChange={() =>
-            messages.length > 0 && listRef.current?.scrollToEnd({ animated: false })
-          }
-          renderItem={({ item }) => (
-            <View className="mb-2">
-              <ChatBubble message={item} />
-              {item.role === 'user' && item.correction ? (
-                <CorrectionCard
-                  correction={item.correction}
-                  onSave={() => saveCorrection(item)}
-                  onPractice={() => onSend(item.correction!.original)}
-                  saving={savingId === item.id}
-                />
-              ) : null}
-            </View>
-          )}
-          ListHeaderComponent={
-            messages.length > 0 ? <ChatDatePill label="Today" /> : null
-          }
-          ListEmptyComponent={
-            <View className="flex-1 justify-center py-8">
-              <View className="items-center">
-                <TutorAvatar size="lg" />
-                <Text className="mt-6 text-center text-2xl font-extrabold text-ink">
-                  Hi! I'm your FluentAI tutor
-                </Text>
-                <Text className="mt-3 max-w-sm text-center text-base leading-6 text-ink-muted">
-                  Practice conversations in your target language. I'll gently correct your grammar
-                  and help you learn new phrases.
-                </Text>
-              </View>
-              <Text className="mb-2 mt-8 text-sm font-bold uppercase tracking-wide text-ink-faint">
-                Try a prompt
-              </Text>
-              <SuggestionChips
-                prompts={SUGGESTED_PROMPTS}
-                limit={4}
-                onSelect={prompt => {
-                  setInput(prompt);
-                  void onSend(prompt);
-                }}
-              />
-            </View>
-          }
-          ListFooterComponent={sending ? <TypingIndicator /> : null}
-        />
-      )}
-
-      {/* Footer — keyboard-aware input area */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}>
-        <View>
-          {error ? (
-            <View style={{ paddingHorizontal: sidePad }}>
-              <ErrorCard message={error} onRetry={() => (input.trim() ? onSend() : load())} />
-            </View>
-          ) : null}
-
-          <ChatInputBar
-            value={input}
-            onChangeText={setInput}
-            onSend={() => onSend()}
-            sending={sending}
-            maxWidth={contentMaxWidth}
-            horizontalPad={sidePad}
-            showQuickReplies={messages.length > 0}
-            onQuickReply={reply => {
-              setInput(reply);
-              void onSend(reply);
+      <View className="flex-1" style={{ paddingBottom: keyboardHeight }}>
+        {loading ? (
+          <View className="flex-1 px-4 pt-4" style={{ paddingHorizontal: sidePad }}>
+            <SkeletonList count={5} />
+          </View>
+        ) : (
+          <FlatList
+            ref={listRef}
+            className="flex-1"
+            contentContainerStyle={{
+              paddingHorizontal: sidePad,
+              paddingTop: 16,
+              paddingBottom: 16,
+              maxWidth: contentMaxWidth,
+              alignSelf: 'center',
+              width: '100%',
+              flexGrow: messages.length === 0 ? 1 : undefined,
             }}
+            data={messages}
+            keyExtractor={item => item.id}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            onContentSizeChange={() => {
+              if (messages.length > 0) scrollToBottom(false);
+            }}
+            renderItem={({ item }) => (
+              <View className="mb-6">
+                <ChatBubble message={item} />
+                {item.role === 'user' && item.correction ? (
+                  <CorrectionCard
+                    correction={item.correction}
+                    onSave={() => saveCorrection(item)}
+                    onPractice={() => onSend(item.correction!.original)}
+                    saving={savingId === item.id}
+                  />
+                ) : null}
+              </View>
+            )}
+            ListHeaderComponent={
+              messages.length > 0 ? <ChatDatePill label="Today" /> : null
+            }
+            ListEmptyComponent={
+              <View className="flex-1 justify-center py-8">
+                <View className="items-center">
+                  <TutorAvatar size="lg" />
+                  <Text className="mt-6 text-center text-2xl font-extrabold text-ink">
+                    Hi! I'm your FluentAI tutor
+                  </Text>
+                  <Text className="mt-3 max-w-sm text-center text-base leading-6 text-ink-muted">
+                    Practice conversations in your target language. I'll gently correct your grammar
+                    and help you learn new phrases.
+                  </Text>
+                </View>
+                <Text className="mb-2 mt-8 text-sm font-bold uppercase tracking-wide text-ink-faint">
+                  Try a prompt
+                </Text>
+                <SuggestionChips
+                  prompts={SUGGESTED_PROMPTS}
+                  limit={4}
+                  onSelect={prompt => {
+                    setInput(prompt);
+                    void onSend(prompt);
+                  }}
+                />
+              </View>
+            }
+            ListFooterComponent={sending ? <TypingIndicator /> : null}
           />
-        </View>
-      </KeyboardAvoidingView>
+        )}
+
+        {error ? (
+          <View style={{ paddingHorizontal: sidePad, paddingBottom: 8 }}>
+            <ErrorCard message={error} onRetry={() => (input.trim() ? onSend() : load())} />
+          </View>
+        ) : null}
+
+        <ChatInputBar
+          value={input}
+          onChangeText={setInput}
+          onSend={() => onSend()}
+          sending={sending}
+          maxWidth={contentMaxWidth}
+          horizontalPad={sidePad}
+          showQuickReplies={messages.length > 0}
+          keyboardVisible={keyboardVisible}
+          onQuickReply={reply => {
+            setInput(reply);
+            void onSend(reply);
+          }}
+        />
+      </View>
 
       <Modal visible={Boolean(vocabModal)} transparent animationType="fade">
         <Pressable
@@ -323,20 +345,24 @@ export function ChatScreen({ navigation, route }: Props) {
             {vocabModal?.translation ? (
               <Text className="mt-2 text-base text-ink-muted">{vocabModal.translation}</Text>
             ) : null}
-            <View className="mt-6 flex-row gap-2">
-              <Button
-                title="Save word"
-                variant="lavender"
-                className="flex-1"
-                onPress={() => {
-                  const msg = messages.find(m => m.correction);
-                  if (msg?.correction && vocabModal) {
-                    void saveCorrection(msg, vocabModal.word);
-                  }
-                  setVocabModal(null);
-                }}
-              />
-              <Button title="Close" variant="outline" className="flex-1" onPress={() => setVocabModal(null)} />
+            <View className="mt-6 flex-row items-stretch gap-3">
+              <View className="min-w-0 flex-1">
+                <Button
+                  title="Save word"
+                  variant="lavender"
+                  className="w-full"
+                  onPress={() => {
+                    const msg = messages.find(m => m.correction);
+                    if (msg?.correction && vocabModal) {
+                      void saveCorrection(msg, vocabModal.word);
+                    }
+                    setVocabModal(null);
+                  }}
+                />
+              </View>
+              <View className="min-w-0 flex-1">
+                <Button title="Close" variant="outline" className="w-full" onPress={() => setVocabModal(null)} />
+              </View>
             </View>
           </Pressable>
         </Pressable>

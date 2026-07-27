@@ -9,29 +9,29 @@ type InsightCardProps = {
 };
 
 export function InsightCard({
-  title = 'AI Insight',
+  title = 'AI Tip',
   children,
   className = '',
 }: InsightCardProps) {
   return (
     <View
-      className={`rounded-card p-5 ${className}`}
+      className={`flex-row items-start gap-4 rounded-[24px] p-6 ${className}`}
       style={{ backgroundColor: colors.insight }}>
-      <View className="mb-2 flex-row items-center gap-2">
-        <Text className="text-base">✨</Text>
-        <Text
-          className="text-sm font-bold uppercase tracking-wider"
-          style={{ color: colors.tertiary }}>
+      <View className="h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white">
+        <Text className="text-lg">✨</Text>
+      </View>
+      <View className="flex-1">
+        <Text className="mb-1 text-sm font-bold" style={{ color: colors.tertiary }}>
           {title}
         </Text>
+        {typeof children === 'string' ? (
+          <Text className="text-base leading-6" style={{ color: colors.tertiaryContainer }}>
+            {children}
+          </Text>
+        ) : (
+          children
+        )}
       </View>
-      {typeof children === 'string' ? (
-        <Text className="text-base leading-6" style={{ color: colors.tertiary }}>
-          {children}
-        </Text>
-      ) : (
-        children
-      )}
     </View>
   );
 }

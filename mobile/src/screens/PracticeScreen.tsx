@@ -8,16 +8,19 @@ import * as api from '../api/endpoints';
 import type { Conversation, VocabularyItem } from '../api/types';
 import { getErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useProfile } from '../hooks/useProfile';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
 import { TutorAvatar } from '../components/brand/TutorAvatar';
 import { ErrorCard } from '../components/ui/ErrorCard';
 import { PressableScale } from '../components/ui/PressableScale';
+import { ProfileAvatar } from '../components/ui/ProfileAvatar';
+import { StreakBadge } from '../components/ui/StreakBadge';
 import { SkeletonList } from '../components/ui/Shimmer';
-import { UserAvatar } from '../components/ui/StitchHeader';
 import { DailyGoalWidget } from '../components/widgets/DailyGoalWidget';
 import { FOR_YOU_ITEMS, HOME_TOPIC_CHIPS, LEARNING_TIP } from '../constants/homeContent';
-import { languageMeta, LAST_PRACTICE_KEY, PENDING_CHAT_PROMPT_KEY } from '../config/constants';
+import { languageMeta, PENDING_CHAT_PROMPT_KEY } from '../config/constants';
+import { getStreakDisplay } from '../services/streakStorage';
 import type { RootStackParamList } from '../navigation/types';
 import { useResponsive } from '../hooks/useResponsive';
 import { colors } from '../theme/tokens';
@@ -26,10 +29,12 @@ import { softShadow } from '../theme/glass';
 function HomeHeader({
   name,
   initials,
+  avatarUri,
   streakLabel,
 }: {
   name: string;
   initials: string;
+  avatarUri: string | null;
   streakLabel: string;
 }) {
   const insets = useSafeAreaInsets();
@@ -37,7 +42,7 @@ function HomeHeader({
 
   return (
     <View
-      className="mb-6 flex-row items-center justify-between bg-canvas"
+      className="mb-6 flex-row items-center justify-between gap-2 bg-canvas"
       style={{
         marginTop: -(insets.top + 8),
         paddingTop: insets.top + 8,
@@ -45,20 +50,16 @@ function HomeHeader({
         paddingHorizontal: horizontalPadding,
         paddingBottom: 8,
       }}>
-      <View className="flex-row items-center gap-3">
-        <UserAvatar initials={initials} />
-        <View>
+      <View className="min-w-0 flex-1 flex-row items-center gap-3">
+        <ProfileAvatar uri={avatarUri} initials={initials} name={name} size="sm" />
+        <View className="min-w-0 flex-1">
           <Text className="text-xs font-medium text-ink-muted">Welcome back,</Text>
-          <Text className="text-2xl font-bold capitalize leading-none text-brand">{name}</Text>
+          <Text className="text-2xl font-bold leading-none text-brand" numberOfLines={1}>
+            {name}
+          </Text>
         </View>
       </View>
-      <View
-        className="flex-row items-center rounded-full px-4 py-1.5"
-        style={{ backgroundColor: colors.primarySoft }}>
-        <Text className="text-sm font-bold" style={{ color: colors.primaryDark }}>
-          🔥 {streakLabel}
-        </Text>
-      </View>
+      <StreakBadge label={streakLabel} />
     </View>
   );
 }
@@ -131,21 +132,20 @@ function ForYouCard({
 export function PracticeScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { settings, user } = useAuth();
+  const { settings } = useAuth();
+  const { resolvedName, initials, avatarUri, reload } = useProfile();
   const { isTablet } = useResponsive();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
-  const [streakLabel, setStreakLabel] = useState('7 Days');
+  const [streakLabel, setStreakLabel] = useState('Start today');
   const [activeTopic, setActiveTopic] = useState<string | null>('Grammar');
 
   const target = languageMeta(settings?.targetLanguage ?? 'es');
   const level = settings?.level ?? 'A1';
   const dailyGoal = settings?.dailyGoalMinutes ?? 10;
-  const name = user?.email?.split('@')[0] ?? 'Learner';
-  const initials = user?.email?.slice(0, 2).toUpperCase() ?? '?';
 
   const lastConversation = conversations[0] ?? null;
 
@@ -177,9 +177,7 @@ export function PracticeScreen() {
       ]);
       setConversations(list);
       setVocabulary(words);
-      const last = await AsyncStorage.getItem(LAST_PRACTICE_KEY);
-      const today = new Date().toDateString();
-      setStreakLabel(last === today ? '7 Days' : 'Start today');
+      setStreakLabel(await getStreakDisplay());
       setError('');
     } catch (e) {
       setError(getErrorMessage(e));
@@ -188,7 +186,12 @@ export function PracticeScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+      void reload();
+    }, [load, reload]),
+  );
 
   async function startNewChat(initialPrompt?: string) {
     setCreating(true);
@@ -229,7 +232,12 @@ export function PracticeScreen() {
   if (loading) {
     return (
       <Screen hasTabBar scroll>
-        <HomeHeader name={name} initials={initials} streakLabel={streakLabel} />
+        <HomeHeader
+          name={resolvedName}
+          initials={initials}
+          avatarUri={avatarUri}
+          streakLabel={streakLabel}
+        />
         <SkeletonList count={4} />
       </Screen>
     );
@@ -237,7 +245,12 @@ export function PracticeScreen() {
 
   return (
     <Screen scroll hasTabBar>
-      <HomeHeader name={name} initials={initials} streakLabel={streakLabel} />
+      <HomeHeader
+        name={resolvedName}
+        initials={initials}
+        avatarUri={avatarUri}
+        streakLabel={streakLabel}
+      />
 
       <View
         className="mb-6 overflow-hidden rounded-[24px] p-6"

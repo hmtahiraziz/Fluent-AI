@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Alert, Pressable, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,15 +10,17 @@ import { LANGUAGES, type CefrLevel } from '../config/constants';
 import { languageMeta } from '../config/constants';
 import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
-import { FluentAIBrand } from '../components/brand/FluentAILogo';
 import { ErrorCard } from '../components/ui/ErrorCard';
 import { LanguagePickerModal } from '../components/ui/LanguagePickerModal';
+import { ProfileAvatar } from '../components/ui/ProfileAvatar';
+import { StreakBadge } from '../components/ui/StreakBadge';
 import {
   AppearanceModal,
   EmailNotificationsModal,
   PersonalInfoModal,
   PrivacyModal,
   type AppearanceOption,
+  type PersonalInfoDraft,
 } from '../components/ui/ProfileModals';
 import {
   ProfileSection,
@@ -29,7 +31,10 @@ import {
   nextMilestone,
 } from '../components/ui/ProfileSections';
 import { SkeletonList } from '../components/ui/Shimmer';
+import { useProfile } from '../hooks/useProfile';
 import { useResponsive } from '../hooks/useResponsive';
+import { loadLocalProfile } from '../services/profileStorage';
+import { getStreakDisplay } from '../services/streakStorage';
 import { colors } from '../theme/tokens';
 import { softShadow } from '../theme/glass';
 
@@ -37,13 +42,35 @@ const APPEARANCE_KEY = '@ailanguage/appearance';
 const NOTIFY_PRACTICE_KEY = '@ailanguage/notify_practice';
 const NOTIFY_DIGEST_KEY = '@ailanguage/notify_digest';
 
-function ProfileHeaderBar() {
+type SettingsSnapshot = {
+  targetLanguage: string;
+  nativeLanguage: string;
+  level: CefrLevel;
+  dailyGoal: number;
+  displayName: string;
+  avatarUri: string | null;
+  appearance: AppearanceOption;
+  practiceReminders: boolean;
+  weeklyDigest: boolean;
+};
+
+function ProfileHeaderBar({
+  initials,
+  avatarUri,
+  name,
+  streakLabel,
+}: {
+  initials: string;
+  avatarUri: string | null;
+  name: string;
+  streakLabel: string;
+}) {
   const insets = useSafeAreaInsets();
   const { horizontalPadding } = useResponsive();
 
   return (
     <View
-      className="flex-row items-center justify-between bg-canvas"
+      className="flex-row items-center justify-between gap-2 bg-canvas"
       style={{
         marginTop: -(insets.top + 8),
         paddingTop: insets.top + 8,
@@ -51,19 +78,13 @@ function ProfileHeaderBar() {
         paddingHorizontal: horizontalPadding,
         paddingBottom: 8,
       }}>
-      <FluentAIBrand iconSize={40} />
-      <Text className="text-sm font-bold text-brand">🔥 7 Days</Text>
+      <View className="min-w-0 flex-1 flex-row items-center gap-3">
+        <ProfileAvatar uri={avatarUri} initials={initials} name={name} size="sm" />
+        <Text className="text-2xl font-bold text-brand">FluentAI</Text>
+      </View>
+      <StreakBadge label={streakLabel} />
     </View>
   );
-}
-
-function formatDisplayName(email?: string) {
-  const raw = email?.split('@')[0] ?? 'Learner';
-  return raw
-    .split(/[._-]/)
-    .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }
 
 function formatChatHours(conversationCount: number, dailyGoalMinutes: number) {
@@ -74,8 +95,19 @@ function formatChatHours(conversationCount: number, dailyGoalMinutes: number) {
 }
 
 export function SettingsScreen() {
-  const { user, logout, settings, setSettings } = useAuth();
+  const { user, logout, setSettings } = useAuth();
   const { isTablet } = useResponsive();
+  const {
+    displayName,
+    setDisplayName,
+    avatarUri,
+    resolvedName,
+    initials,
+    reload: reloadProfile,
+    persistProfile,
+    pickAvatar,
+  } = useProfile();
+
   const [targetLanguage, setTargetLanguage] = useState('es');
   const [nativeLanguage, setNativeLanguage] = useState('en');
   const [level, setLevel] = useState<CefrLevel>('A1');
@@ -86,16 +118,48 @@ export function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [savedSnapshot, setSavedSnapshot] = useState<SettingsSnapshot | null>(null);
 
   const [personalOpen, setPersonalOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [nativeOpen, setNativeOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [streakLabel, setStreakLabel] = useState('Start today');
 
   const [appearance, setAppearance] = useState<AppearanceOption>('Light');
   const [practiceReminders, setPracticeReminders] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(false);
+
+  const currentSnapshot = useMemo<SettingsSnapshot>(
+    () => ({
+      targetLanguage,
+      nativeLanguage,
+      level,
+      dailyGoal,
+      displayName,
+      avatarUri,
+      appearance,
+      practiceReminders,
+      weeklyDigest,
+    }),
+    [
+      targetLanguage,
+      nativeLanguage,
+      level,
+      dailyGoal,
+      displayName,
+      avatarUri,
+      appearance,
+      practiceReminders,
+      weeklyDigest,
+    ],
+  );
+
+  const isDirty = useMemo(() => {
+    if (!savedSnapshot) return false;
+    return JSON.stringify(currentSnapshot) !== JSON.stringify(savedSnapshot);
+  }, [currentSnapshot, savedSnapshot]);
 
   const loadPrefs = useCallback(async () => {
     const [app, practice, digest] = await Promise.all([
@@ -103,22 +167,41 @@ export function SettingsScreen() {
       AsyncStorage.getItem(NOTIFY_PRACTICE_KEY),
       AsyncStorage.getItem(NOTIFY_DIGEST_KEY),
     ]);
-    if (app === 'Light' || app === 'Dark' || app === 'System') setAppearance(app);
-    if (practice !== null) setPracticeReminders(practice === '1');
-    if (digest !== null) setWeeklyDigest(digest === '1');
+    const appearanceValue =
+      app === 'Light' || app === 'Dark' || app === 'System' ? app : 'Light';
+    const practiceValue = practice !== null ? practice === '1' : true;
+    const digestValue = digest !== null ? digest === '1' : false;
+
+    setAppearance(appearanceValue);
+    setPracticeReminders(practiceValue);
+    setWeeklyDigest(digestValue);
+
+    return {
+      appearance: appearanceValue as AppearanceOption,
+      practiceReminders: practiceValue,
+      weeklyDigest: digestValue,
+    };
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       void (async () => {
         setLoading(true);
+        setError('');
         try {
-          await loadPrefs();
+          const prefs = await loadPrefs();
+          await reloadProfile();
+          setStreakLabel(await getStreakDisplay());
+          const profile = user?.id
+            ? await loadLocalProfile(user.id)
+            : { displayName: '', avatarUri: null };
+
           const [s, words, convos] = await Promise.all([
             api.fetchSettings(),
             api.fetchVocabulary(),
             api.fetchConversations(),
           ]);
+
           setTargetLanguage(s.targetLanguage);
           setNativeLanguage(s.nativeLanguage);
           setLevel(s.level as CefrLevel);
@@ -126,17 +209,31 @@ export function SettingsScreen() {
           setWordCount(words.length);
           setConversationCount(convos.length);
           setSettings(s);
-          setError('');
+
+          const snapshot: SettingsSnapshot = {
+            targetLanguage: s.targetLanguage,
+            nativeLanguage: s.nativeLanguage,
+            level: s.level as CefrLevel,
+            dailyGoal: s.dailyGoalMinutes,
+            displayName: profile.displayName,
+            avatarUri: profile.avatarUri,
+            appearance: prefs.appearance,
+            practiceReminders: prefs.practiceReminders,
+            weeklyDigest: prefs.weeklyDigest,
+          };
+          setSavedSnapshot(snapshot);
         } catch (e) {
           setError(getErrorMessage(e));
         } finally {
           setLoading(false);
         }
       })();
-    }, [loadPrefs, setSettings]),
+    }, [loadPrefs, reloadProfile, setSettings, user?.id]),
   );
 
   async function onSave() {
+    if (!isDirty || saving) return;
+
     setSaving(true);
     setError('');
     setMessage('');
@@ -148,11 +245,19 @@ export function SettingsScreen() {
         dailyGoalMinutes: dailyGoal,
       });
       setSettings(s);
+
+      await persistProfile({
+        displayName: displayName.trim(),
+        avatarUri,
+      });
+
       await Promise.all([
         AsyncStorage.setItem(APPEARANCE_KEY, appearance),
         AsyncStorage.setItem(NOTIFY_PRACTICE_KEY, practiceReminders ? '1' : '0'),
         AsyncStorage.setItem(NOTIFY_DIGEST_KEY, weeklyDigest ? '1' : '0'),
       ]);
+
+      setSavedSnapshot(currentSnapshot);
       setMessage('Changes saved successfully.');
     } catch (e) {
       setError(getErrorMessage(e));
@@ -161,38 +266,61 @@ export function SettingsScreen() {
     }
   }
 
+  function applyPersonalInfo(draft: PersonalInfoDraft) {
+    setDisplayName(draft.displayName);
+    setNativeLanguage(draft.nativeLanguage);
+    setTargetLanguage(draft.targetLanguage);
+    setLevel(draft.level);
+    setDailyGoal(draft.dailyGoal);
+  }
+
+  async function onEditAvatar() {
+    try {
+      await pickAvatar();
+    } catch (e) {
+      Alert.alert('Photo upload failed', getErrorMessage(e));
+    }
+  }
+
   const target = languageMeta(targetLanguage);
   const native = languageMeta(nativeLanguage);
-  const initials = user?.email?.slice(0, 2).toUpperCase() ?? '?';
-  const displayName = formatDisplayName(user?.email);
   const progress = levelProgressPercent(level);
   const chatTime = formatChatHours(conversationCount, dailyGoal);
 
+  const personalDraft: PersonalInfoDraft = {
+    displayName,
+    email: user?.email ?? '',
+    nativeLanguage,
+    targetLanguage,
+    level,
+    dailyGoal,
+  };
+
   if (loading) {
     return (
-      <Screen scroll hasTabBar header={<ProfileHeaderBar />}>
+      <Screen scroll hasTabBar header={<ProfileHeaderBar initials="?" avatarUri={null} name="Learner" streakLabel="Start today" />}>
         <SkeletonList count={4} />
       </Screen>
     );
   }
 
   return (
-    <Screen scroll hasTabBar header={<ProfileHeaderBar />}>
+    <Screen
+      scroll
+      hasTabBar
+      header={
+        <ProfileHeaderBar initials={initials} avatarUri={avatarUri} name={resolvedName} streakLabel={streakLabel} />
+      }>
       <View className="mb-8 items-center">
-        <View className="relative">
-          <View
-            className="h-32 w-32 items-center justify-center overflow-hidden rounded-full border-4 border-white"
-            style={[softShadow(), { backgroundColor: colors.primarySoft }]}>
-            <Text className="text-4xl font-bold text-brand">{initials}</Text>
-          </View>
-          <Pressable
-            onPress={() => setPersonalOpen(true)}
-            className="absolute bottom-1 right-0 h-10 w-10 items-center justify-center rounded-full"
-            style={{ backgroundColor: colors.primary, ...softShadow(6) }}>
-            <Text className="text-base text-white">✎</Text>
-          </Pressable>
-        </View>
-        <Text className="mt-4 text-[28px] font-bold text-ink">{displayName}</Text>
+        <ProfileAvatar
+          uri={avatarUri}
+          initials={initials}
+          name={resolvedName}
+          size="lg"
+          editable
+          onEditPress={() => void onEditAvatar()}
+        />
+        <Text className="mt-4 text-[28px] font-bold text-ink">{resolvedName}</Text>
         <Text className="mt-1 text-base text-ink-muted">
           {native.label} to {target.label} • {levelDisplayName(level)}
         </Text>
@@ -260,30 +388,32 @@ export function SettingsScreen() {
         <SettingsRow icon="🔒" label="Privacy & Security" onPress={() => setPrivacyOpen(true)} />
       </ProfileSection>
 
-      {error ? <ErrorCard message={error} onRetry={onSave} /> : null}
+      {error ? <ErrorCard message={error} onRetry={() => void onSave()} /> : null}
       {message ? (
         <View className="mb-3 rounded-2xl bg-surface px-4 py-3" style={softShadow(4)}>
           <Text className="text-sm font-medium text-ink">{message}</Text>
         </View>
       ) : null}
 
-      <Button title="Save Changes" variant="lavender" loading={saving} onPress={onSave} />
       <Button
-        title="Logout"
-        variant="outline"
-        className="mt-3 mb-8"
-        onPress={() => void logout()}
+        title="Save Changes"
+        variant="lavender"
+        loading={saving}
+        disabled={!isDirty || saving}
+        onPress={() => void onSave()}
       />
+      <Pressable
+        onPress={() => void logout()}
+        className="mt-3 mb-8 min-h-[52px] flex-row items-center justify-center gap-2 rounded-full border-2"
+        style={{ borderColor: colors.border }}>
+        <Text className="text-lg">↪</Text>
+        <Text className="text-sm font-bold text-ink">Logout</Text>
+      </Pressable>
 
       <PersonalInfoModal
         visible={personalOpen}
-        email={user?.email ?? ''}
-        targetLanguage={targetLanguage}
-        level={level}
-        dailyGoal={dailyGoal}
-        onChangeTarget={setTargetLanguage}
-        onChangeLevel={setLevel}
-        onChangeDailyGoal={setDailyGoal}
+        draft={personalDraft}
+        onApply={applyPersonalInfo}
         onClose={() => setPersonalOpen(false)}
       />
 

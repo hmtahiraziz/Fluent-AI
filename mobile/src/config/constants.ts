@@ -43,17 +43,108 @@ export const CEFR_DESCRIPTIONS: Record<CefrLevel, string> = {
   C2: 'Proficient — near-native precision',
 };
 
+export const CEFR_LEVEL_META: Record<
+  CefrLevel,
+  { title: string; subtitle: string; fullLabel: string }
+> = {
+  A1: {
+    title: 'Beginner',
+    subtitle: 'Basic phrases and greetings',
+    fullLabel: 'Beginner (A1)',
+  },
+  A2: {
+    title: 'Elementary',
+    subtitle: 'Simple sentences & routine tasks',
+    fullLabel: 'Elementary (A2)',
+  },
+  B1: {
+    title: 'Intermediate',
+    subtitle: 'Work, school, and travel topics',
+    fullLabel: 'Intermediate (B1)',
+  },
+  B2: {
+    title: 'Upper Intermediate',
+    subtitle: 'Complex text and fluent interaction',
+    fullLabel: 'Upper Intermediate (B2)',
+  },
+  C1: {
+    title: 'Advanced',
+    subtitle: 'Demanding texts and implicit meaning',
+    fullLabel: 'Advanced (C1)',
+  },
+  C2: {
+    title: 'Proficient',
+    subtitle: 'Effortless mastery of language',
+    fullLabel: 'Proficient (C2)',
+  },
+};
+
 export const MOTIVATIONS = [
-  { id: 'travel', label: 'Travel', emoji: '✈️' },
-  { id: 'work', label: 'Work', emoji: '💼' },
-  { id: 'school', label: 'School', emoji: '🎓' },
-  { id: 'family', label: 'Family', emoji: '👨‍👩‍👧' },
-  { id: 'fun', label: 'Just for fun', emoji: '🎉' },
+  {
+    id: 'travel',
+    label: 'Travel',
+    emoji: '✈️',
+    description: 'Explore new cultures and navigate like a local.',
+    iconBg: '#e4dfff',
+  },
+  {
+    id: 'work',
+    label: 'Work',
+    emoji: '💼',
+    description: 'Advance your career and connect with global teams.',
+    iconBg: '#ebe2c6',
+  },
+  {
+    id: 'school',
+    label: 'School',
+    emoji: '🎓',
+    description: 'Ace your classes and prepare for study abroad.',
+    iconBg: '#e4dfff',
+  },
+  {
+    id: 'family',
+    label: 'Family',
+    emoji: '👨‍👩‍👧',
+    description: 'Connect with heritage and speak to relatives.',
+    iconBg: '#ffdad6',
+  },
+  {
+    id: 'fun',
+    label: 'Just for fun',
+    emoji: '😊',
+    description: 'Keep your brain sharp and enjoy a new hobby.',
+    iconBg: '#e4e2e1',
+  },
+] as const;
+
+export const DAILY_GOAL_OPTIONS = [
+  { minutes: 5, label: 'Casual', icon: '🌱' },
+  { minutes: 10, label: 'Regular', icon: '📖' },
+  { minutes: 15, label: 'Serious', icon: '📈' },
+  { minutes: 20, label: 'Insane', icon: '⚡' },
 ] as const;
 
 export const DAILY_GOALS = [5, 10, 15, 20] as const;
 
 export const ONBOARDING_STEPS = 6;
+
+export const NATIVE_LANGUAGE_CODES = ['en', 'es', 'fr', 'de', 'it', 'pt'] as const;
+export const TARGET_LANGUAGE_CODES = ['es', 'ja', 'fr', 'it', 'de', 'ko'] as const;
+
+export function featuredLanguages(codes: readonly string[]): LanguageMeta[] {
+  return codes
+    .map(code => LANGUAGES.find(lang => lang.code === code))
+    .filter((lang): lang is LanguageMeta => lang != null);
+}
+
+export function otherLanguages(codes: readonly string[]): LanguageMeta[] {
+  const featured = new Set<string>(codes);
+  return LANGUAGES.filter(lang => !featured.has(lang.code));
+}
+
+export function isFeaturedLanguage(code: string, featuredCodes: readonly string[]): boolean {
+  return featuredCodes.includes(code as (typeof featuredCodes)[number]);
+}
 
 const DEV_ANDROID = 'http://127.0.0.1:3000';
 const DEV_IOS = 'http://localhost:3000';

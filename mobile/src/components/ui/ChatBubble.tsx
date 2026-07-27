@@ -22,7 +22,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
   const time = formatTime(message.createdAt);
 
   return (
-    <View className={`mb-4 max-w-[85%] ${isUser ? 'self-end items-end' : 'self-start items-start'}`}>
+    <View className={`max-w-[85%] ${isUser ? 'self-end items-end' : 'self-start items-start'}`}>
       <View
         className="rounded-2xl px-4 py-3"
         style={[

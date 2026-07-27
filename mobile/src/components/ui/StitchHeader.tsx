@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FluentAIBrand } from '../brand/FluentAILogo';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -49,9 +49,11 @@ export function StitchHeader({
 
 export function UserAvatar({
   initials,
+  uri,
   size = 40,
 }: {
   initials: string;
+  uri?: string | null;
   size?: number;
 }) {
   return (
@@ -63,7 +65,11 @@ export function UserAvatar({
         borderColor: colors.primarySoft,
         backgroundColor: colors.surfaceContainerHighest,
       }}>
-      <Text className="text-sm font-bold text-brand">{initials}</Text>
+      {uri ? (
+        <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="cover" />
+      ) : (
+        <Text className="text-sm font-bold text-brand">{initials}</Text>
+      )}
     </View>
   );
 }

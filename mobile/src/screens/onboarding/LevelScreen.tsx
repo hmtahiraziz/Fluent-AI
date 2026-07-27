@@ -1,42 +1,58 @@
 import React, { useState } from 'react';
+import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { CEFR_DESCRIPTIONS, CEFR_LEVELS, type CefrLevel } from '../../config/constants';
+import { CEFR_LEVELS, CEFR_LEVEL_META, type CefrLevel } from '../../config/constants';
 import { useOnboarding } from '../../context/OnboardingContext';
 import type { OnboardingStackParamList } from '../../navigation/types';
-import { InsightCard } from '../../components/ui/InsightCard';
+import { CefrLevelCard } from '../../components/ui/CefrLevelCard';
 import { OnboardingShell } from '../../components/ui/OnboardingShell';
-import { SelectionRow } from '../../components/ui/SelectionRow';
+import { colors } from '../../theme/tokens';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Level'>;
 
 export function LevelScreen({ navigation }: Props) {
-  const { draft, updateDraft } = useOnboarding();
-  const [selected, setSelected] = useState<CefrLevel>(draft.level as CefrLevel);
+  const { updateDraft } = useOnboarding();
+  const [selected, setSelected] = useState<CefrLevel>('B1');
 
   return (
     <OnboardingShell
       step={4}
       titlePrimary="What's your current "
       titleAccent="level?"
-      subtitle="Not sure? Start at A1 — you can always level up."
-      footerExtra={
-        <InsightCard title="AI Tip" className="mt-6">
-          CEFR levels help your tutor adjust vocabulary and grammar complexity automatically.
-        </InsightCard>
-      }
+      subtitle="This helps us personalize your learning path and daily challenges."
+      centerStepLabel
+      footerHint={null}
+      footerVariant="pill"
       onContinue={() => {
         updateDraft({ level: selected, step: 5 });
         navigation.navigate('DailyGoal');
       }}>
-      {CEFR_LEVELS.map(level => (
-        <SelectionRow
-          key={level}
-          title={level}
-          subtitle={CEFR_DESCRIPTIONS[level]}
-          selected={selected === level}
-          onPress={() => setSelected(level)}
-        />
-      ))}
+      {CEFR_LEVELS.map(level => {
+        const meta = CEFR_LEVEL_META[level];
+        return (
+          <CefrLevelCard
+            key={level}
+            level={level}
+            title={meta.title}
+            subtitle={meta.subtitle}
+            selected={selected === level}
+            onPress={() => setSelected(level)}
+          />
+        );
+      })}
+
+      <View
+        className="mt-8 flex-row items-start gap-4 rounded-[24px] p-6"
+        style={{ backgroundColor: colors.insight }}>
+        <Text className="text-xl text-tertiary">✨</Text>
+        <View className="flex-1">
+          <Text className="text-sm font-bold text-tertiary">Personalized insight</Text>
+          <Text className="mt-1 text-base leading-6 text-tertiary">
+            Most users start at B1 to build confidence before jumping into conversational
+            practice.
+          </Text>
+        </View>
+      </View>
     </OnboardingShell>
   );
 }

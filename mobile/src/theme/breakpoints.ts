@@ -36,6 +36,16 @@ export function horizontalPadding(breakpoint: Breakpoint): number {
 }
 
 export function gridColumns(breakpoint: Breakpoint, compactCols = 1): number {
+  if (compactCols === 1) {
+    switch (breakpoint) {
+      case 'wide':
+      case 'tablet':
+        return 2;
+      default:
+        return 1;
+    }
+  }
+
   switch (breakpoint) {
     case 'wide':
       return 4;
