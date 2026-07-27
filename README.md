@@ -1,4 +1,4 @@
-# AILanguage
+# Fluent AI
 
 Language-practice app: React Native client + Express API (see plan).
 
