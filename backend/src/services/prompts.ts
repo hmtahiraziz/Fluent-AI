@@ -9,9 +9,14 @@ const LEVEL_GUIDANCE: Record<CefrLevel, string> = {
   C2: "Near-native precision, idiomatic expressions, subtle register shifts when fitting.",
 };
 
-export function buildTutorSystemPrompt(language: string, level: CefrLevel): string {
+export function buildTutorSystemPrompt(
+  language: string,
+  level: CefrLevel,
+  nativeLanguage?: string,
+): string {
   const langName = languageLabel(language);
   const meta = languageMeta(language);
+  const nativeName = nativeLanguage ? languageLabel(nativeLanguage) : "English";
   const scriptNote = meta.rtl
     ? `\n- Use natural ${langName} script (RTL). Write tutorReply in proper ${langName} orthography.`
     : "";
@@ -38,7 +43,7 @@ Correction rules:
 - If there are grammar, spelling, or unnatural phrasing issues, fill "correction":
   - "original": echo what they wrote (or the relevant phrase),
   - "corrected": natural ${langName} fix,
-  - "explanation": 1–2 short sentences in English explaining the fix.`;
+  - "explanation": 1–2 short sentences in ${nativeName} explaining the fix.`;
 }
 
 export const tutorResponseJsonSchema = {

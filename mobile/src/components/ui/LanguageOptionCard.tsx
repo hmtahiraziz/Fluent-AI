@@ -28,18 +28,26 @@ export function LanguageOptionCard({
       <View
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        className={`flex-row items-center rounded-[24px] ${embedded ? 'p-4' : 'p-5'}`}
+        className={`flex-row items-center rounded-[24px] ${embedded ? 'border p-4' : 'p-5'}`}
         style={[
           embedded ? undefined : softShadow(),
           {
             minHeight: embedded ? 72 : 80,
             backgroundColor: embedded
-              ? colors.surfaceContainerLow
+              ? selected
+                ? colors.surfaceContainer
+                : colors.surface
               : selected
                 ? colors.surfaceContainer
                 : colors.surface,
-            borderWidth: selected && !embedded ? 1.5 : 0,
-            borderColor: selected ? colors.primaryContainer : 'transparent',
+            borderWidth: embedded ? (selected ? 1.5 : 1) : selected ? 1.5 : 0,
+            borderColor: embedded
+              ? selected
+                ? colors.primaryContainer
+                : colors.borderLight
+              : selected
+                ? colors.primaryContainer
+                : 'transparent',
           },
         ]}>
         <View
