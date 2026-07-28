@@ -47,7 +47,9 @@ type ProfileSectionProps = {
 
 export function ProfileSection({ title, children }: ProfileSectionProps) {
   return (
-    <View className="mb-4 overflow-hidden rounded-[24px] bg-white" style={softShadow()}>
+    <View
+      className="mb-4 overflow-hidden rounded-[24px] bg-white"
+      style={{ borderWidth: 1, borderColor: colors.borderLight }}>
       <View className="border-b px-6 py-4" style={{ borderColor: colors.surfaceContainer }}>
         <Text className="text-sm font-bold uppercase tracking-wider text-ink-muted">
           {title}

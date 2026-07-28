@@ -2,6 +2,7 @@ export { GlassCard } from './GlassCard';
 export { SplitHeadline } from './SplitHeadline';
 export { SelectionRow } from './SelectionRow';
 export { AuthField } from './AuthField';
+export { AuthScreenLayout } from './AuthScreenLayout';
 export { OnboardingShell } from './OnboardingShell';
 export { OnboardingFooter } from './OnboardingFooter';
 export { PressableScale } from './PressableScale';

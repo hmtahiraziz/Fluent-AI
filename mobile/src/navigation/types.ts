@@ -29,6 +29,8 @@ export type RootStackParamList = {
     conversationId: string;
     title?: string;
     guided?: boolean;
+    language?: string;
+    level?: string;
   };
 };
 
@@ -36,4 +38,6 @@ export type PendingChat = {
   conversationId: string;
   title?: string;
   guided?: boolean;
+  language?: string;
+  level?: string;
 };

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Modal,
+  Platform,
   Pressable,
   Text,
   View,
@@ -22,7 +23,15 @@ import { ErrorCard } from '../components/ui/ErrorCard';
 import { SkeletonList } from '../components/ui/Shimmer';
 import { SuggestionChips } from '../components/ui/PromptChip';
 import { StreakBadge } from '../components/ui/StreakBadge';
-import { SUGGESTED_PROMPTS } from '../constants/chatPrompts';
+import { TypingIndicator } from '../components/ui/TypingIndicator';
+import {
+  getQuickReplies,
+  getSuggestedPrompts,
+  LanguageMismatchBanner,
+  LanguagePairPill,
+  useLanguagePair,
+} from '../features/chat';
+import { useAuth } from '../context/AuthContext';
 import { PENDING_CHAT_PROMPT_KEY } from '../config/constants';
 import { formatStreakLabel, getStreakDisplay, recordPracticeDay } from '../services/streakStorage';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
@@ -32,70 +41,85 @@ import { colors } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
+import type { LanguagePairInfo } from '../features/chat';
+
 function ChatHeader({
   onBack,
   streakLabel,
   horizontalPad,
   topInset,
   compact,
+  languagePair,
 }: {
   onBack: () => void;
   streakLabel: string;
   horizontalPad: number;
   topInset: number;
   compact: boolean;
+  languagePair: LanguagePairInfo;
 }) {
   return (
     <View
-      className="flex-row items-center justify-between bg-canvas"
+      className="bg-canvas"
       style={{
         paddingTop: topInset + 8,
         paddingBottom: 8,
         paddingHorizontal: horizontalPad,
       }}>
-      <Pressable
-        onPress={onBack}
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-        className="mr-2 h-10 w-10 items-center justify-center rounded-full"
-        style={{ backgroundColor: colors.surfaceContainer }}>
-        <Text className="text-xl font-bold text-brand">←</Text>
-      </Pressable>
+      <View className="flex-row items-center justify-between">
+        <Pressable
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          className="mr-2 h-10 w-10 items-center justify-center rounded-full"
+          style={{ backgroundColor: colors.surfaceContainer }}>
+          <Text className="text-xl font-bold text-brand">←</Text>
+        </Pressable>
 
-      <View className="min-w-0 flex-1 flex-row items-center gap-3">
-        <View
-          className="overflow-hidden rounded-full border"
-          style={{ borderColor: colors.border }}>
-          <TutorAvatar size="sm" />
-        </View>
-        <View className="min-w-0 flex-1">
-          <Text className="text-2xl font-bold text-brand" numberOfLines={1}>
-            AI Tutor
-          </Text>
-          <View className="flex-row items-center gap-1">
-            <View className="h-2 w-2 rounded-full bg-success" />
-            <Text className="text-xs font-medium text-ink-muted">Online</Text>
+        <View className="min-w-0 flex-1 flex-row items-center gap-3">
+          <View
+            className="overflow-hidden rounded-full border"
+            style={{ borderColor: colors.border }}>
+            <TutorAvatar size="sm" />
+          </View>
+          <View className="min-w-0 flex-1">
+            <Text className="text-2xl font-bold text-brand" numberOfLines={1}>
+              AI Tutor
+            </Text>
+            <View className="mt-0.5 flex-row items-center gap-1">
+              <View className="h-2 w-2 rounded-full bg-success" />
+              <Text className="text-xs font-medium text-ink-muted">Online</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      <View className="ml-2 flex-row items-center gap-2">
-        {!compact ? (
-          <Pressable
-            className="h-10 w-10 items-center justify-center rounded-full"
-            style={{ backgroundColor: colors.surfaceContainer }}>
-            <Text className="text-base text-brand">🔍</Text>
-          </Pressable>
-        ) : null}
-        <StreakBadge label={streakLabel} compact />
+        <View className="ml-2 flex-row items-center gap-2">
+          {!compact ? (
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-full"
+              style={{ backgroundColor: colors.surfaceContainer }}>
+              <Text className="text-base text-brand">🔍</Text>
+            </Pressable>
+          ) : null}
+          <StreakBadge label={streakLabel} compact />
+        </View>
       </View>
+      <LanguagePairPill
+        native={languagePair.native}
+        target={languagePair.target}
+        level={languagePair.level}
+        compact
+        style={{ marginTop: 10, alignSelf: 'flex-start' }}
+      />
     </View>
   );
 }
 
 export function ChatScreen({ navigation, route }: Props) {
-  const { conversationId, guided } = route.params;
+  const { conversationId, guided, language: routeLanguage } = route.params;
   const insets = useSafeAreaInsets();
+  const { settings } = useAuth();
+  const languagePair = useLanguagePair();
   const { contentMaxWidth, horizontalPadding, isCompact } = useResponsive();
   const listRef = useRef<FlatList>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -232,6 +256,13 @@ export function ChatScreen({ navigation, route }: Props) {
 
   const sidePad = horizontalPadding;
   const keyboardVisible = keyboardHeight > 0;
+  const chatLanguage = routeLanguage ?? languagePair.targetCode;
+  const suggestedPrompts = getSuggestedPrompts(chatLanguage);
+  const quickReplies = getQuickReplies(chatLanguage);
+  const languageMismatch =
+    Boolean(routeLanguage) &&
+    Boolean(settings?.targetLanguage) &&
+    routeLanguage !== settings?.targetLanguage;
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.canvas }}>
@@ -241,9 +272,19 @@ export function ChatScreen({ navigation, route }: Props) {
         horizontalPad={sidePad}
         topInset={insets.top}
         compact={isCompact}
+        languagePair={languagePair}
       />
 
-      <View className="flex-1" style={{ paddingBottom: keyboardHeight }}>
+      {languageMismatch && routeLanguage && settings?.targetLanguage ? (
+        <LanguageMismatchBanner
+          conversationLanguage={routeLanguage}
+          currentTargetLanguage={settings.targetLanguage}
+        />
+      ) : null}
+
+      <View
+        className="flex-1"
+        style={{ paddingBottom: Platform.OS === 'ios' ? keyboardHeight : 0 }}>
         {loading ? (
           <View className="flex-1 px-4 pt-4" style={{ paddingHorizontal: sidePad }}>
             <SkeletonList count={5} />
@@ -292,15 +333,15 @@ export function ChatScreen({ navigation, route }: Props) {
                     Hi! I'm your FluentAI tutor
                   </Text>
                   <Text className="mt-3 max-w-sm text-center text-base leading-6 text-ink-muted">
-                    Practice conversations in your target language. I'll gently correct your grammar
-                    and help you learn new phrases.
+                    Practice {languagePair.target.label} at {languagePair.level} level. I'll gently
+                    correct your grammar and help you learn new phrases.
                   </Text>
                 </View>
                 <Text className="mb-2 mt-8 text-sm font-bold uppercase tracking-wide text-ink-faint">
                   Try a prompt
                 </Text>
                 <SuggestionChips
-                  prompts={SUGGESTED_PROMPTS}
+                  prompts={suggestedPrompts}
                   limit={4}
                   onSelect={prompt => {
                     setInput(prompt);
@@ -328,6 +369,7 @@ export function ChatScreen({ navigation, route }: Props) {
           horizontalPad={sidePad}
           showQuickReplies={messages.length > 0}
           keyboardVisible={keyboardVisible}
+          quickReplies={quickReplies}
           onQuickReply={reply => {
             setInput(reply);
             void onSend(reply);

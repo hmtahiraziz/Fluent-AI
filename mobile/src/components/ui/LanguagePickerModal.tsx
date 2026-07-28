@@ -113,6 +113,7 @@ export function LanguagePickerModal({
                   label={lang.label}
                   nativeLabel={lang.nativeLabel}
                   flag={lang.flag}
+                  embedded
                   selected={selectedCode === lang.code}
                   onPress={() => {
                     onSelect(lang.code);

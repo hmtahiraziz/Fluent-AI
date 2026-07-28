@@ -81,6 +81,8 @@ export function PlanReadyScreen(_props: Props) {
       setPendingChat({
         conversationId: conversation.id,
         title: 'First practice',
+        language: conversation.language,
+        level: conversation.level,
         guided: true,
       });
     } catch (e) {
