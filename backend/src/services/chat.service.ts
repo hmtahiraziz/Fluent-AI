@@ -38,12 +38,13 @@ async function callTutorModel(
   level: CefrLevel,
   history: { role: "user" | "assistant"; content: string }[],
   userContent: string,
+  nativeLanguage?: string,
 ): Promise<z.infer<typeof tutorResponseSchema>> {
   const client = getOpenAI();
   const model = getEnv().OPENAI_MODEL;
 
   const chatMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: "system", content: buildTutorSystemPrompt(language, level) },
+    { role: "system", content: buildTutorSystemPrompt(language, level, nativeLanguage) },
     ...history.map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
@@ -104,6 +105,12 @@ export async function sendMessage(
   const level = conversation.level as CefrLevel;
   const language = conversation.language;
 
+  const [settings] = await db
+    .select({ nativeLanguage: userSettings.nativeLanguage })
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+    .limit(1);
+
   const priorRows = await db
     .select({ role: messages.role, content: messages.content })
     .from(messages)
@@ -132,7 +139,13 @@ export async function sendMessage(
     throw new AppError(500, "Failed to save message");
   }
 
-  const tutor = await callTutorModel(language, level, history, trimmed);
+  const tutor = await callTutorModel(
+    language,
+    level,
+    history,
+    trimmed,
+    settings?.nativeLanguage,
+  );
 
   const correction: MessageCorrection | null = tutor.correction;
   if (correction) {

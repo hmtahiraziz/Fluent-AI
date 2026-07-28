@@ -1,17 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import * as api from '../api/endpoints';
 import type { Conversation, VocabularyItem } from '../api/types';
 import { getErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useProfile } from '../hooks/useProfile';
-import { Button } from '../components/Button';
 import { Screen } from '../components/Screen';
-import { TutorAvatar } from '../components/brand/TutorAvatar';
 import { ErrorCard } from '../components/ui/ErrorCard';
 import { PressableScale } from '../components/ui/PressableScale';
 import { ProfileAvatar } from '../components/ui/ProfileAvatar';
@@ -19,9 +15,15 @@ import { StreakBadge } from '../components/ui/StreakBadge';
 import { SkeletonList } from '../components/ui/Shimmer';
 import { DailyGoalWidget } from '../components/widgets/DailyGoalWidget';
 import { FOR_YOU_ITEMS, HOME_TOPIC_CHIPS, LEARNING_TIP } from '../constants/homeContent';
-import { languageMeta, PENDING_CHAT_PROMPT_KEY } from '../config/constants';
+import {
+  findResumableConversation,
+  getOtherLanguageConversations,
+  PracticeChatHero,
+  RecentConversations,
+  useChatLauncher,
+  useLanguagePair,
+} from '../features/chat';
 import { getStreakDisplay } from '../services/streakStorage';
-import type { RootStackParamList } from '../navigation/types';
 import { useResponsive } from '../hooks/useResponsive';
 import { colors } from '../theme/tokens';
 import { softShadow } from '../theme/glass';
@@ -130,31 +132,28 @@ function ForYouCard({
 }
 
 export function PracticeScreen() {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { settings } = useAuth();
+  const { settings, refreshSettings } = useAuth();
+  const languagePair = useLanguagePair();
+  const { startNewChat, resumeConversation, creating, error, setError } = useChatLauncher();
   const { resolvedName, initials, avatarUri, reload } = useProfile();
   const { isTablet } = useResponsive();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState('');
   const [streakLabel, setStreakLabel] = useState('Start today');
   const [activeTopic, setActiveTopic] = useState<string | null>('Grammar');
 
-  const target = languageMeta(settings?.targetLanguage ?? 'es');
-  const level = settings?.level ?? 'A1';
   const dailyGoal = settings?.dailyGoalMinutes ?? 10;
 
-  const lastConversation = conversations[0] ?? null;
+  const resumable = useMemo(() => {
+    if (!settings) return null;
+    return findResumableConversation(conversations, settings);
+  }, [conversations, settings]);
 
-  const resumeSubtitle = useMemo(() => {
-    if (lastConversation?.title) {
-      return `You were learning about '${lastConversation.title}' in ${target.label}.`;
-    }
-    return `Ready to practice ${target.label} at ${level} level?`;
-  }, [lastConversation?.title, target.label, level]);
+  const otherConversations = useMemo(() => {
+    if (!settings) return conversations;
+    return getOtherLanguageConversations(conversations, settings);
+  }, [conversations, settings]);
 
   const goalProgress = useMemo(() => {
     const today = new Date().toDateString();
@@ -184,50 +183,15 @@ export function PracticeScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setError]);
 
   useFocusEffect(
     useCallback(() => {
+      void refreshSettings();
       void load();
       void reload();
-    }, [load, reload]),
+    }, [refreshSettings, load, reload]),
   );
-
-  async function startNewChat(initialPrompt?: string) {
-    setCreating(true);
-    setError('');
-    try {
-      const c = await api.createConversation(
-        initialPrompt ? initialPrompt.slice(0, 80) : undefined,
-      );
-      if (initialPrompt) {
-        await AsyncStorage.setItem(
-          PENDING_CHAT_PROMPT_KEY,
-          JSON.stringify({ conversationId: c.id, prompt: initialPrompt }),
-        );
-      }
-      navigation.navigate('Chat', {
-        conversationId: c.id,
-        title: c.title ?? 'Practice',
-        guided: Boolean(initialPrompt),
-      });
-    } catch (e) {
-      setError(getErrorMessage(e));
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  function resumeChat() {
-    if (lastConversation) {
-      navigation.navigate('Chat', {
-        conversationId: lastConversation.id,
-        title: lastConversation.title ?? 'Practice',
-      });
-      return;
-    }
-    void startNewChat();
-  }
 
   if (loading) {
     return (
@@ -252,40 +216,13 @@ export function PracticeScreen() {
         streakLabel={streakLabel}
       />
 
-      <View
-        className="mb-6 overflow-hidden rounded-[24px] p-6"
-        style={{ backgroundColor: colors.insight }}>
-        <View className="flex-row items-start justify-between">
-          <View className="flex-1 pr-3">
-            <View className="mb-1 flex-row items-center gap-2">
-              <Text className="text-base">✨</Text>
-              <Text
-                className="text-xs font-bold uppercase tracking-wider"
-                style={{ color: colors.tertiary }}>
-                AI Tutor
-              </Text>
-            </View>
-            <Text
-              className="text-[28px] font-bold leading-9"
-              style={{ color: '#1f1c0a' }}>
-              Continue Practice
-            </Text>
-            <Text className="mt-2 max-w-[200px] text-base leading-6 text-tertiary">
-              {resumeSubtitle}
-            </Text>
-          </View>
-          <View className="h-24 w-24 items-center justify-center">
-            <TutorAvatar size="md" />
-          </View>
-        </View>
-        <Button
-          title="Resume Chat"
-          variant="dark"
-          loading={creating}
-          className="mt-6"
-          onPress={resumeChat}
-        />
-      </View>
+      <PracticeChatHero
+        languagePair={languagePair}
+        resumable={resumable}
+        onStartNew={() => void startNewChat()}
+        onResume={() => resumable && resumeConversation(resumable)}
+        loading={creating}
+      />
 
       <View className="mb-6">
         <TopicChipRow
@@ -331,6 +268,12 @@ export function PracticeScreen() {
           </View>
         </View>
       </View>
+
+      <RecentConversations
+        conversations={otherConversations}
+        currentTarget={languagePair.targetCode}
+        onOpen={resumeConversation}
+      />
 
       <View
         className="mb-8 flex-row items-center gap-4 rounded-[24px] p-5"

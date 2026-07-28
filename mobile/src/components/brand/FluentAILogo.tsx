@@ -7,6 +7,7 @@ type FluentAILogoProps = {
   variant?: 'full' | 'compact' | 'wordmark';
   showIcon?: boolean;
   iconSize?: number;
+  wordmarkClassName?: string;
   style?: ViewStyle;
 };
 
@@ -14,12 +15,14 @@ export function FluentAILogo({
   variant = 'full',
   showIcon = variant !== 'wordmark',
   iconSize,
+  wordmarkClassName,
   style,
 }: FluentAILogoProps) {
   const resolvedIconSize =
     iconSize ?? (variant === 'compact' ? 36 : variant === 'full' ? 56 : 0);
   const titleSize =
-    variant === 'compact' ? 'text-2xl' : variant === 'full' ? 'text-3xl' : 'text-2xl';
+    wordmarkClassName ??
+    (variant === 'compact' ? 'text-2xl' : variant === 'full' ? 'text-3xl' : 'text-2xl');
 
   return (
     <View
@@ -29,7 +32,12 @@ export function FluentAILogo({
         <AppIconMark size={resolvedIconSize} />
       ) : null}
       <View>
-        <Text className={`${titleSize} font-extrabold text-ink`}>FluentAI</Text>
+        <Text
+          className={
+            wordmarkClassName ?? `${titleSize} font-extrabold text-ink`
+          }>
+          FluentAI
+        </Text>
         {variant === 'full' ? (
           <Text className="mt-0.5 text-sm font-medium text-ink-muted">
             Your personal language tutor
@@ -51,10 +59,19 @@ export function FluentAIWordmark({ className = '' }: { className?: string }) {
 /** Compact icon + name row for headers and auth screens */
 export function FluentAIBrand({
   iconSize = 40,
+  wordmarkClassName = 'text-2xl font-bold text-brand',
   style,
 }: {
   iconSize?: number;
+  wordmarkClassName?: string;
   style?: ViewStyle;
 }) {
-  return <FluentAILogo variant="compact" iconSize={iconSize} style={style} />;
+  return (
+    <FluentAILogo
+      variant="compact"
+      iconSize={iconSize}
+      wordmarkClassName={wordmarkClassName}
+      style={style}
+    />
+  );
 }
