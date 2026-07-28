@@ -27,13 +27,13 @@ export function CefrLevelCard({
       <View
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        className={`flex-row items-center rounded-[24px] border ${compact ? 'mb-2 p-4' : 'mb-4 p-5'}`}
+        className={`flex-row items-center rounded-[24px] border ${compact ? 'p-4' : 'mb-4 p-5'}`}
         style={[
-          softShadow(),
+          compact ? undefined : softShadow(),
           {
             backgroundColor: selected ? colors.surfaceContainer : colors.surface,
-            borderColor: selected ? colors.primaryContainer : 'transparent',
-            borderWidth: selected ? 1.5 : 1,
+            borderColor: selected ? colors.primaryContainer : compact ? colors.borderLight : 'transparent',
+            borderWidth: selected ? 1.5 : compact ? 1 : 1,
           },
         ]}>
         <View

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Dimensions,
   Modal,
   Pressable,
   ScrollView,
@@ -43,33 +44,52 @@ function SettingsSheet({
   footer,
 }: SheetProps) {
   const insets = useSafeAreaInsets();
+  const sheetMaxHeight = Dimensions.get('window').height * 0.94;
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View className="flex-1 justify-end bg-ink/40">
         <View
-          className="max-h-[94%] rounded-t-[32px] bg-canvas px-5 pt-3"
-          style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
-          <View className="mb-4 items-center">
-            <View
-              className="mb-4 h-1 w-10 rounded-full"
-              style={{ backgroundColor: colors.border }}
-            />
-            <View className="w-full flex-row items-start justify-between">
-              <View className="flex-1 pr-4">
-                <Text className="text-2xl font-bold text-ink">{title}</Text>
-                {subtitle ? (
-                  <Text className="mt-1 text-base leading-6 text-ink-muted">{subtitle}</Text>
-                ) : null}
+          className="rounded-t-[32px] bg-canvas px-5 pt-3"
+          style={{
+            maxHeight: sheetMaxHeight,
+            paddingBottom: Math.max(insets.bottom, 16),
+          }}>
+          <View className="shrink-0 pb-3">
+            <View className="mb-4 items-center">
+              <View
+                className="mb-4 h-1 w-10 rounded-full"
+                style={{ backgroundColor: colors.border }}
+              />
+              <View className="w-full flex-row items-start justify-between">
+                <View className="flex-1 pr-4">
+                  <Text className="text-2xl font-bold text-ink">{title}</Text>
+                  {subtitle ? (
+                    <Text className="mt-1 text-base leading-6 text-ink-muted">{subtitle}</Text>
+                  ) : null}
+                </View>
+                <Pressable onPress={onClose} className="px-2 py-1">
+                  <Text className="text-base font-bold text-brand">Cancel</Text>
+                </Pressable>
               </View>
-              <Pressable onPress={onClose} className="px-2 py-1">
-                <Text className="text-base font-bold text-brand">Cancel</Text>
-              </Pressable>
             </View>
           </View>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={{ flexGrow: 0, flexShrink: 1 }}
+            contentContainerStyle={{ paddingBottom: footer ? 12 : 8 }}
+            keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
-          {footer}
+
+          {footer ? (
+            <View
+              className="shrink-0 border-t pt-4"
+              style={{ borderColor: colors.borderLight, backgroundColor: colors.canvas }}>
+              {footer}
+            </View>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -138,12 +158,7 @@ export function PersonalInfoModal({
         subtitle="Update your profile and learning preferences."
         onClose={onClose}
         footer={
-          <Button
-            title="Apply Changes"
-            variant="lavender"
-            className="mt-4"
-            onPress={applyChanges}
-          />
+          <Button title="Apply Changes" variant="lavender" onPress={applyChanges} />
         }>
         <ProfileSection title="Account">
           <View className="px-2 pb-2">
@@ -196,7 +211,7 @@ export function PersonalInfoModal({
         </ProfileSection>
 
         <ProfileSection title="Learning level">
-          <View className="p-2">
+          <View className="gap-3 p-2">
             {CEFR_LEVELS.map(level => {
               const meta = CEFR_LEVEL_META[level];
               return (
@@ -222,6 +237,7 @@ export function PersonalInfoModal({
                 label={option.label}
                 minutes={option.minutes}
                 icon={option.icon}
+                embedded
                 selected={local.dailyGoal === option.minutes}
                 onPress={() => setLocal(prev => ({ ...prev, dailyGoal: option.minutes }))}
               />
