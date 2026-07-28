@@ -1,13 +1,34 @@
-import React, { useState } from 'react';
-import { Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
+import React, { forwardRef, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type TextInputProps,
+  type TextStyle,
+} from 'react-native';
 import { colors } from '../../theme/tokens';
 
-type AuthFieldProps = TextInputProps & {
+type AuthFieldProps = Omit<TextInputProps, 'style'> & {
   label: string;
   error?: string;
+  style?: TextStyle;
 };
 
-export function AuthField({ label, error, secureTextEntry, ...props }: AuthFieldProps) {
+export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthField(
+  {
+    label,
+    error,
+    secureTextEntry,
+    style,
+    editable = true,
+    autoCorrect = false,
+    ...props
+  },
+  ref,
+) {
   const [hidden, setHidden] = useState(Boolean(secureTextEntry));
   const isPassword = Boolean(secureTextEntry);
 
@@ -19,14 +40,20 @@ export function AuthField({ label, error, secureTextEntry, ...props }: AuthField
           error ? 'border-coral' : 'border-border'
         }`}>
         <TextInput
+          ref={ref}
           placeholderTextColor={colors.inkFaint}
-          secureTextEntry={isPassword && hidden}
-          className="flex-1 py-3.5 text-base text-ink"
           {...props}
+          editable={editable}
+          autoCorrect={autoCorrect}
+          secureTextEntry={isPassword && hidden}
+          showSoftInputOnFocus
+          underlineColorAndroid="transparent"
+          style={[styles.input, style]}
         />
         {isPassword ? (
           <Pressable
             onPress={() => setHidden(v => !v)}
+            hitSlop={8}
             accessibilityLabel={hidden ? 'Show password' : 'Hide password'}
             className="px-2 py-1">
             <Text className="text-lg text-ink-muted">{hidden ? '👁' : '🙈'}</Text>
@@ -38,4 +65,16 @@ export function AuthField({ label, error, secureTextEntry, ...props }: AuthField
       ) : null}
     </View>
   );
-}
+});
+
+const styles = StyleSheet.create({
+  input: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.ink,
+    minHeight: 44,
+    paddingVertical: Platform.OS === 'android' ? 8 : 14,
+    ...(Platform.OS === 'android' ? { textAlignVertical: 'center' as const } : {}),
+  },
+});

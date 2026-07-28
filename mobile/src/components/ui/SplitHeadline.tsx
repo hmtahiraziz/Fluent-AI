@@ -8,6 +8,7 @@ type SplitHeadlineProps = {
   accent: string;
   className?: string;
   size?: 'lg' | 'xl';
+  align?: 'left' | 'center' | 'auto';
 };
 
 export function SplitHeadline({
@@ -15,6 +16,7 @@ export function SplitHeadline({
   accent,
   className = '',
   size = 'lg',
+  align = 'auto',
 }: SplitHeadlineProps) {
   const { isTablet } = useResponsive();
   const textClass =
@@ -25,10 +27,14 @@ export function SplitHeadline({
       : isTablet
         ? 'text-3xl leading-10'
         : 'text-2xl leading-8';
+  const textAlign =
+    align === 'auto' ? (isTablet ? 'left' : 'center') : align;
 
   return (
     <View className={className}>
-      <Text className={`${textClass} font-extrabold text-ink`}>
+      <Text
+        className={`${textClass} font-extrabold text-ink`}
+        style={{ textAlign }}>
         {primary}
         <Text style={{ color: colors.accent }}>{accent}</Text>
       </Text>

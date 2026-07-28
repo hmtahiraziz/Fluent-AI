@@ -9,6 +9,7 @@ type DailyGoalOptionCardProps = {
   minutes: number;
   icon: string;
   selected?: boolean;
+  embedded?: boolean;
   onPress: () => void;
 };
 
@@ -17,6 +18,7 @@ export function DailyGoalOptionCard({
   minutes,
   icon,
   selected = false,
+  embedded = false,
   onPress,
 }: DailyGoalOptionCardProps) {
   return (
@@ -24,12 +26,13 @@ export function DailyGoalOptionCard({
       <View
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        className="flex-row items-center justify-between rounded-[24px] border-2 p-4"
+        className={`flex-row items-center justify-between rounded-[24px] p-4 ${embedded ? 'border' : 'border-2'}`}
         style={[
-          softShadow(),
+          embedded ? undefined : softShadow(),
           {
             backgroundColor: selected ? colors.primarySoft : colors.surface,
-            borderColor: selected ? colors.secondary : 'transparent',
+            borderColor: selected ? colors.secondary : embedded ? colors.borderLight : 'transparent',
+            borderWidth: selected ? (embedded ? 1.5 : 2) : embedded ? 1 : 2,
           },
         ]}>
         <View className="flex-row items-center gap-4">

@@ -1,6 +1,7 @@
 package com.mobile
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -12,6 +13,7 @@ class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(null)
     WindowCompat.setDecorFitsSystemWindows(window, true)
+    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
   }
 
   /**
