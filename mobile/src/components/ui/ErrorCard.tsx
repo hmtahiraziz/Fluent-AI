@@ -19,9 +19,9 @@ export function ErrorCard({
       className="my-4 rounded-card border p-5"
       style={{
         backgroundColor: colors.surface,
-        borderColor: colors.coral,
+        borderColor: colors.danger,
       }}>
-      <Text className="text-base font-bold" style={{ color: colors.coral }}>
+      <Text className="text-base font-bold" style={{ color: colors.danger }}>
         Something went wrong
       </Text>
       <Text className="mt-2 text-sm leading-5 text-ink">{message}</Text>
