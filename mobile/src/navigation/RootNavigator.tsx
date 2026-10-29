@@ -7,8 +7,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { OnboardingProvider } from '../context/OnboardingContext';
 import { ChatScreen } from '../screens/ChatScreen';
-import { SplashScreen } from '../components/Screen';
+import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { VocabularyDetailScreen } from '../screens/VocabularyDetailScreen';
+import { VocabularyReviewScreen } from '../screens/VocabularyReviewScreen';
+import { SessionRestoreScreen, SplashScreen } from '../components/Screen';
 import { AuthNavigator } from './AuthNavigator';
+import { linking } from './linking';
 import { MainTabs } from './MainTabs';
 import { OnboardingNavigator } from './OnboardingNavigator';
 import type { RootStackParamList } from './types';
@@ -20,8 +24,16 @@ function RootStack({
 }: {
   navRef: React.RefObject<NavigationContainerRef<RootStackParamList> | null>;
 }) {
-  const { isAuthenticated, isOnboarded, isLoading, pendingChat, setPendingChat } =
-    useAuth();
+  const {
+    isAuthenticated,
+    isOnboarded,
+    isLoading,
+    sessionOffline,
+    sessionError,
+    retrySessionRestore,
+    pendingChat,
+    setPendingChat,
+  } = useAuth();
 
   useEffect(() => {
     if (!pendingChat || !isAuthenticated || !isOnboarded) return;
@@ -34,6 +46,17 @@ function RootStack({
 
   if (isLoading) {
     return <SplashScreen />;
+  }
+
+  // Credentials kept in Keychain; do not enter Auth/Main until /me succeeds.
+  if (sessionOffline) {
+    return (
+      <SessionRestoreScreen
+        message={sessionError}
+        onRetry={() => void retrySessionRestore()}
+        retrying={isLoading}
+      />
+    );
   }
 
   return (
@@ -50,6 +73,21 @@ function RootStack({
             component={ChatScreen}
             options={{ animation: 'slide_from_right' }}
           />
+          <Stack.Screen
+            name="VocabularyDetail"
+            component={VocabularyDetailScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="VocabularyReview"
+            component={VocabularyReviewScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="PrivacyPolicy"
+            component={PrivacyPolicyScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
         </>
       )}
     </Stack.Navigator>
@@ -61,7 +99,7 @@ export function RootNavigator() {
 
   return (
     <OnboardingProvider>
-      <NavigationContainer ref={navRef}>
+      <NavigationContainer ref={navRef} linking={linking}>
         <RootStack navRef={navRef} />
       </NavigationContainer>
     </OnboardingProvider>

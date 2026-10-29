@@ -1,11 +1,15 @@
 import React, { useEffect } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
+  Pressable,
   ScrollView,
+  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  KeyboardAwareScrollView,
+} from 'react-native-keyboard-controller';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -49,10 +53,12 @@ export function Screen({
   const bottomPad = hasTabBar ? tabBarInset : insets.bottom + 24;
   const topPad = insets.top + (isTablet ? 12 : 8);
 
+  // flex:1 so FlatList / flex children (Words, Chat) get a real height bound.
+  // Without this, lists collapse to ~0 and only a sliver of the header shows.
   const inner = (
     <View
       className={centered ? 'mx-auto w-full' : 'w-full'}
-      style={{ maxWidth: contentMaxWidth }}>
+      style={{ maxWidth: contentMaxWidth, flex: 1 }}>
       {header}
       {children}
     </View>
@@ -77,46 +83,51 @@ export function Screen({
   );
 
   if (scroll) {
-    const scrollContent = (
-      <ScrollView
-        className="flex-1 bg-canvas"
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingTop: topPad,
-          paddingBottom: bottomPad,
-          paddingHorizontal: sidePad,
-        }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator>
-        <View
-          className={centered ? 'mx-auto w-full' : 'w-full'}
-          style={{ maxWidth: contentMaxWidth }}>
-          {header}
-          {children}
-        </View>
-      </ScrollView>
+    const content = (
+      <View
+        className={centered ? 'mx-auto w-full' : 'w-full'}
+        style={{ maxWidth: contentMaxWidth }}>
+        {header}
+        {children}
+      </View>
     );
+    const contentStyle = {
+      flexGrow: 1,
+      paddingTop: topPad,
+      paddingBottom: bottomPad,
+      paddingHorizontal: sidePad,
+    };
 
     if (keyboard) {
       return (
-        <KeyboardAvoidingView
-          className="flex-1"
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
-          {scrollContent}
-        </KeyboardAvoidingView>
+        <KeyboardAwareScrollView
+          style={{ flex: 1, backgroundColor: colors.canvas }}
+          contentContainerStyle={contentStyle}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator
+          bottomOffset={24}>
+          {content}
+        </KeyboardAwareScrollView>
       );
     }
 
-    return scrollContent;
+    return (
+      <ScrollView
+        className="flex-1 bg-canvas"
+        contentContainerStyle={contentStyle}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator>
+        {content}
+      </ScrollView>
+    );
   }
 
   if (keyboard) {
     return (
       <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
+        style={{ flex: 1 }}
+        behavior="padding"
+        keyboardVerticalOffset={8}>
         {body}
       </KeyboardAvoidingView>
     );
@@ -196,4 +207,50 @@ export function SplashScreen() {
 
 export function LoadingScreen() {
   return <SplashScreen />;
+}
+
+type SessionRestoreScreenProps = {
+  message?: string | null;
+  onRetry: () => void;
+  retrying?: boolean;
+};
+
+/** Shown when Keychain has credentials but session validation failed transiently. */
+export function SessionRestoreScreen({
+  message,
+  onRetry,
+  retrying,
+}: SessionRestoreScreenProps) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      className="flex-1 items-center justify-center bg-canvas px-8"
+      style={{
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+      }}>
+      <FluentAILogo variant="full" iconSize={64} />
+      <Text className="mt-6 text-center text-lg font-bold text-ink">
+        Can&apos;t reach FluentAI
+      </Text>
+      <Text className="mt-2 text-center text-base leading-6 text-ink-muted">
+        {message ??
+          'Check your connection and try again. Your sign-in was kept on this device.'}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        disabled={retrying}
+        onPress={onRetry}
+        className="mt-8 min-h-12 min-w-[160px] items-center justify-center rounded-2xl px-6"
+        style={{
+          backgroundColor: colors.primary,
+          opacity: retrying ? 0.7 : 1,
+        }}>
+        <Text className="text-base font-bold text-white">
+          {retrying ? 'Retrying…' : 'Try again'}
+        </Text>
+      </Pressable>
+    </View>
+  );
 }

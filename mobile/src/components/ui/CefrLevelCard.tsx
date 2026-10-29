@@ -2,7 +2,6 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import type { CefrLevel } from '../../config/constants';
 import { PressableScale } from './PressableScale';
-import { softShadow } from '../../theme/glass';
 import { colors } from '../../theme/tokens';
 
 type CefrLevelCardProps = {
@@ -27,31 +26,36 @@ export function CefrLevelCard({
       <View
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        className={`flex-row items-center rounded-[24px] border ${compact ? 'p-4' : 'mb-4 p-5'}`}
-        style={[
-          compact ? undefined : softShadow(),
-          {
-            backgroundColor: selected ? colors.surfaceContainer : colors.surface,
-            borderColor: selected ? colors.primaryContainer : compact ? colors.borderLight : 'transparent',
-            borderWidth: selected ? 1.5 : compact ? 1 : 1,
-          },
-        ]}>
+        className={`flex-row items-center rounded-[20px] ${compact ? 'p-4' : 'mb-3 p-4'}`}
+        style={{
+          backgroundColor: selected ? colors.primarySoft : colors.surfaceContainer,
+        }}>
         <View
-          className="h-12 w-12 items-center justify-center rounded-full"
-          style={{ backgroundColor: colors.primarySoft }}>
-          <Text className="text-lg font-bold" style={{ color: colors.primaryDark }}>
+          className="h-11 w-11 items-center justify-center rounded-full"
+          style={{
+            backgroundColor: selected ? colors.secondaryContainer : colors.surface,
+          }}>
+          <Text
+            className="text-sm font-bold"
+            style={{ color: selected ? colors.onSecondaryContainer : colors.primaryDark }}>
             {level}
           </Text>
         </View>
-        <View className="ml-4 flex-1">
-          <Text className="text-sm font-bold text-ink">{title}</Text>
-          <Text className="mt-0.5 text-xs font-medium text-ink-muted">{subtitle}</Text>
+        <View className="ml-3.5 flex-1">
+          <Text className="text-base font-semibold text-ink">{title}</Text>
+          <Text className="mt-0.5 text-sm text-ink-muted">{subtitle}</Text>
         </View>
-        <Text
-          className="text-2xl"
-          style={{ color: colors.primaryContainer, opacity: selected ? 1 : 0 }}>
-          ✓
-        </Text>
+        <View
+          className="h-6 w-6 items-center justify-center rounded-full"
+          style={{
+            backgroundColor: selected ? colors.secondaryContainer : colors.surfaceContainerHighest,
+          }}>
+          {selected ? (
+            <Text className="text-xs font-bold" style={{ color: colors.onSecondaryContainer }}>
+              ✓
+            </Text>
+          ) : null}
+        </View>
       </View>
     </PressableScale>
   );

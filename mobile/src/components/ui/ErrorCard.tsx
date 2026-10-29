@@ -16,17 +16,14 @@ export function ErrorCard({
 }: ErrorCardProps) {
   return (
     <View
-      className="my-4 rounded-card border p-5"
-      style={{
-        backgroundColor: colors.surface,
-        borderColor: colors.danger,
-      }}>
-      <Text className="text-base font-bold" style={{ color: colors.danger }}>
+      className="my-3 rounded-[20px] p-4"
+      style={{ backgroundColor: '#fce8e8' }}>
+      <Text className="text-sm font-bold" style={{ color: colors.danger }}>
         Something went wrong
       </Text>
-      <Text className="mt-2 text-sm leading-5 text-ink">{message}</Text>
+      <Text className="mt-1.5 text-sm leading-5 text-ink">{message}</Text>
       {onRetry ? (
-        <Button title={retryLabel} variant="outline" className="mt-4" onPress={onRetry} />
+        <Button title={retryLabel} variant="ghost" className="mt-3" onPress={onRetry} />
       ) : null}
     </View>
   );

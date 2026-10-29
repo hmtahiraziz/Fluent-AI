@@ -11,15 +11,15 @@ import Animated, {
 import { colors } from '../../theme/tokens';
 
 function Dot({ delay }: { delay: number }) {
-  const scale = useSharedValue(0.4);
+  const scale = useSharedValue(0.45);
 
   useEffect(() => {
     scale.value = withDelay(
       delay,
       withRepeat(
         withSequence(
-          withTiming(1, { duration: 350 }),
-          withTiming(0.4, { duration: 350 }),
+          withTiming(1, { duration: 320 }),
+          withTiming(0.45, { duration: 320 }),
         ),
         -1,
       ),
@@ -48,15 +48,15 @@ function Dot({ delay }: { delay: number }) {
 
 export function TypingIndicator() {
   return (
-    <View className="mb-4 flex-row items-center gap-3 self-start py-2">
+    <View className="mb-3 flex-row items-center gap-2.5 self-start py-1">
       <View
-        className="flex-row items-center rounded-full px-3 py-2"
+        className="flex-row items-center rounded-[16px] px-3.5 py-2.5"
         style={{ backgroundColor: colors.surfaceContainer }}>
         <Dot delay={0} />
-        <Dot delay={160} />
-        <Dot delay={320} />
+        <Dot delay={140} />
+        <Dot delay={280} />
       </View>
-      <Text className="text-xs italic text-ink-muted">AI is typing...</Text>
+      <Text className="text-xs font-medium text-ink-muted">AI is typing…</Text>
     </View>
   );
 }
