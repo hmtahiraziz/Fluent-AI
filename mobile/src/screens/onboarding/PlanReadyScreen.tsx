@@ -1,7 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react';
+import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as api from '../../api/endpoints';
 import { getErrorMessage } from '../../api/client';
@@ -14,55 +12,59 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useOnboarding } from '../../context/OnboardingContext';
 import type { OnboardingStackParamList } from '../../navigation/types';
-import { OnboardingFooter } from '../../components/ui/OnboardingFooter';
-import { useResponsive } from '../../hooks/useResponsive';
-import { softShadow } from '../../theme/glass';
+import { ErrorCard } from '../../components/ui/ErrorCard';
+import { InsightCard } from '../../components/ui/InsightCard';
+import { OnboardingShell } from '../../components/ui/OnboardingShell';
 import { colors } from '../../theme/tokens';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'PlanReady'>;
 
+/** Real product capabilities — not invented curriculum claims. */
 const INCLUDED_ITEMS = [
-  'Personalized curriculum',
-  'Daily AI coaching',
-  'Smart vocabulary',
+  'AI tutor chat in your target language',
+  'Corrections and vocabulary you choose to save',
+  'Spaced-repetition review for saved words',
 ] as const;
 
-function nextLevelLabel(level: string): string {
-  const order: CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-  const idx = order.indexOf(level as CefrLevel);
-  const next = idx >= 0 && idx < order.length - 1 ? order[idx + 1] : 'B2';
-  return CEFR_LEVEL_META[next].title;
-}
-
-function projectFluencyDate(dailyMinutes: number): string {
-  const months = dailyMinutes >= 20 ? 5 : dailyMinutes >= 15 ? 6 : dailyMinutes >= 10 ? 8 : 10;
-  const date = new Date();
-  date.setMonth(date.getMonth() + months);
-  return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
-}
-
 function motivationDisplayLabel(id: string): string {
-  if (id === 'work') return 'Business Fluency';
   return MOTIVATIONS.find(m => m.id === id)?.label ?? id;
 }
 
+function SummaryRow({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value: string;
+  last?: boolean;
+}) {
+  return (
+    <>
+      <View className="flex-row items-center justify-between py-2.5">
+        <Text className="text-sm text-ink-muted">{label}</Text>
+        <Text className="ml-3 max-w-[58%] text-right text-sm font-bold text-brand">
+          {value}
+        </Text>
+      </View>
+      {last ? null : (
+        <View className="h-px" style={{ backgroundColor: colors.borderLight }} />
+      )}
+    </>
+  );
+}
+
 export function PlanReadyScreen(_props: Props) {
-  const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
-  const { horizontalPadding, contentMaxWidth, isTablet } = useResponsive();
   const { draft, clearDraft } = useOnboarding();
   const { setSettings, setPendingChat } = useAuth();
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
 
+  const native = languageMeta(draft.nativeLanguage);
   const target = languageMeta(draft.targetLanguage);
-  const levelMeta = CEFR_LEVEL_META[draft.level as CefrLevel] ?? CEFR_LEVEL_META.B1;
+  const levelMeta = CEFR_LEVEL_META[draft.level as CefrLevel] ?? CEFR_LEVEL_META.A1;
   const motivationLabel = motivationDisplayLabel(draft.motivation);
-  const projectionDate = useMemo(
-    () => projectFluencyDate(draft.dailyGoalMinutes),
-    [draft.dailyGoalMinutes],
-  );
-  const nextLevel = useMemo(() => nextLevelLabel(draft.level), [draft.level]);
+  const dailyMinutes = draft.dailyGoalMinutes;
 
   async function startChat() {
     setStarting(true);
@@ -72,11 +74,12 @@ export function PlanReadyScreen(_props: Props) {
         nativeLanguage: draft.nativeLanguage,
         targetLanguage: draft.targetLanguage,
         level: draft.level,
+        motivation: draft.motivation,
         dailyGoalMinutes: draft.dailyGoalMinutes,
         onboardingCompleted: true,
       });
       setSettings(settings);
-      const conversation = await api.createConversation('First practice');
+      const conversation = await api.createConversation({ title: 'First practice' });
       await clearDraft();
       setPendingChat({
         conversationId: conversation.id,
@@ -93,162 +96,103 @@ export function PlanReadyScreen(_props: Props) {
   }
 
   return (
-    <View className="flex-1 bg-canvas">
-      <View
-        className="flex-row items-center bg-canvas"
-        style={{
-          paddingTop: insets.top + 8,
-          paddingHorizontal: horizontalPadding,
-          paddingBottom: 8,
-        }}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          className="h-10 w-10 items-center justify-center rounded-full"
-          accessibilityLabel="Go back"
-          style={({ pressed }) => ({
-            backgroundColor: pressed ? colors.surfaceContainerHighest : 'transparent',
-          })}>
-          <Text className="text-2xl text-brand">←</Text>
-        </Pressable>
-        <Text className="ml-4 text-sm font-bold text-brand">Step 6 of 6</Text>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: horizontalPadding,
-          paddingTop: 24,
-          paddingBottom: Math.max(insets.bottom, 24) + 80,
-          maxWidth: contentMaxWidth,
-          alignSelf: 'center',
-          width: '100%',
-        }}
-        showsVerticalScrollIndicator={false}>
-        <Text
-          className={`font-extrabold text-ink ${isTablet ? 'text-[40px] leading-[48px]' : 'text-[32px] leading-10'}`}>
-          Your plan is <Text style={{ color: colors.accent }}>ready</Text>
-        </Text>
-        <Text className="mt-2 max-w-sm text-base leading-6 text-ink-muted">
-          We've built a roadmap specifically for your learning style and goals.
-        </Text>
-
-        <View className={`mt-8 gap-4 ${isTablet ? 'flex-row' : ''}`}>
-          <View
-            className={`rounded-[24px] border p-6 ${isTablet ? 'flex-1' : ''}`}
-            style={[
-              softShadow(),
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.surfaceContainerHighest,
-              },
-            ]}>
-            <View className="mb-4 flex-row items-center gap-3">
-              <View
-                className="h-12 w-12 items-center justify-center rounded-full"
-                style={{ backgroundColor: colors.primarySoft }}>
-                <Text className="text-2xl">{target.flag}</Text>
-              </View>
-              <View>
-                <Text className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                  Target Language
-                </Text>
-                <Text className="text-xl font-bold text-ink">{target.label}</Text>
-              </View>
-            </View>
+    <OnboardingShell
+      step={6}
+      titlePrimary="Your plan is "
+      titleAccent="ready"
+      subtitle="Here's a summary of what you chose. We'll use these preferences for tutoring and practice."
+      footerLabel="Start first chat"
+      footerHint={null}
+      footerVariant="dark"
+      footerShowArrow
+      footerLoading={starting}
+      footerPlacement="sticky"
+      onContinue={startChat}>
+      <View className="gap-3">
+        <View
+          className="rounded-[20px] p-5"
+          style={{
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.borderLight,
+          }}>
+          <View className="mb-4 flex-row items-center gap-3">
             <View
-              className="border-b py-2"
-              style={{ borderColor: colors.surfaceContainer }}>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-base text-ink-muted">Selected Goal</Text>
-                <Text className="text-sm font-bold text-brand">{motivationLabel}</Text>
-              </View>
+              className="h-12 w-12 items-center justify-center rounded-full"
+              style={{ backgroundColor: colors.primarySoft }}>
+              <Text className="text-2xl">{target.flag}</Text>
             </View>
-            <View className="flex-row items-center justify-between py-2">
-              <Text className="text-base text-ink-muted">Starting Level</Text>
-              <Text className="text-sm font-bold text-brand">{levelMeta.fullLabel}</Text>
+            <View className="flex-1">
+              <Text className="text-[11px] font-extrabold uppercase tracking-wider text-brand">
+                Your selections
+              </Text>
+              <Text className="mt-0.5 text-xl font-extrabold text-ink">
+                {native.label} → {target.label}
+              </Text>
             </View>
           </View>
 
           <View
-            className={`rounded-[24px] p-6 ${isTablet ? 'flex-1' : ''}`}
-            style={{ backgroundColor: colors.insight }}>
-            <View className="mb-4 flex-row items-center gap-2">
-              <Text className="text-lg">💡</Text>
-              <Text className="text-sm font-bold text-tertiary">AI Projection</Text>
-            </View>
-            <Text className="text-lg font-medium leading-7 text-ink">
-              You'll reach{' '}
-              <Text className="font-bold">
-                {nextLevel} Fluency
-              </Text>{' '}
-              by {projectionDate} based on your {draft.dailyGoalMinutes}-min daily goal.
-            </Text>
-            <View className="mt-6 flex-row items-center">
-              {['🧑‍🏫', '👩‍💻'].map((emoji, i) => (
-                <View
-                  key={emoji}
-                  className="h-8 w-8 items-center justify-center rounded-full border-2 bg-white"
-                  style={{
-                    borderColor: colors.insight,
-                    marginLeft: i > 0 ? -8 : 0,
-                  }}>
-                  <Text className="text-sm">{emoji}</Text>
-                </View>
-              ))}
-              <View
-                className="-ml-2 h-8 w-8 items-center justify-center rounded-full border-2"
-                style={{ borderColor: colors.insight, backgroundColor: colors.tertiary }}>
-                <Text className="text-[10px] font-bold text-white">+12</Text>
-              </View>
-            </View>
+            className="rounded-2xl px-4 py-2"
+            style={{ backgroundColor: colors.surfaceContainerLow }}>
+            <SummaryRow label="Native language" value={native.label} />
+            <SummaryRow label="Target language" value={target.label} />
+            <SummaryRow label="Motivation" value={motivationLabel} />
+            <SummaryRow label="Starting level" value={levelMeta.fullLabel} />
+            <SummaryRow
+              label="Daily goal"
+              value={`${dailyMinutes} min / day`}
+              last
+            />
           </View>
         </View>
 
-        <View
-          className="mt-8 rounded-[24px] p-8"
-          style={{ backgroundColor: colors.surfaceContainerLow }}>
-          <Text className="mb-6 text-sm font-bold uppercase tracking-widest text-ink-muted">
-            What's Included
+        <InsightCard title="Next step" icon="💬">
+          <Text className="text-base font-medium leading-6 text-ink">
+            Practice {target.label} at {levelMeta.fullLabel} with a {dailyMinutes}-minute
+            daily goal. Your tutor will explain corrections in {native.label}.
           </Text>
-          {INCLUDED_ITEMS.map(item => (
-            <View key={item} className="mb-5 flex-row items-center gap-4">
+        </InsightCard>
+
+        <View
+          className="rounded-[20px] p-5"
+          style={{
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.borderLight,
+          }}>
+          <Text className="mb-4 text-[11px] font-extrabold uppercase tracking-wider text-brand">
+            What's included
+          </Text>
+          {INCLUDED_ITEMS.map((item, index) => (
+            <View
+              key={item}
+              className={`flex-row items-center gap-3 ${index < INCLUDED_ITEMS.length - 1 ? 'mb-3.5' : ''}`}>
               <View
                 className="h-6 w-6 items-center justify-center rounded-full"
                 style={{ backgroundColor: colors.secondaryContainer }}>
-                <Text className="text-xs font-bold" style={{ color: colors.onSecondaryContainer }}>
+                <Text
+                  className="text-xs font-bold"
+                  style={{ color: colors.onSecondaryContainer }}>
                   ✓
                 </Text>
               </View>
-              <Text className="text-lg font-medium text-ink">{item}</Text>
+              <Text className="flex-1 text-base font-medium text-ink">{item}</Text>
             </View>
           ))}
         </View>
 
         <View
-          className="mt-8 h-48 overflow-hidden rounded-[24px]"
-          style={{ backgroundColor: colors.surfaceContainer }}>
-          <View className="flex-1 items-center justify-center px-8 py-10">
-            <Text className="text-5xl">📚</Text>
-            <Text className="mt-4 text-center text-base font-medium text-ink-muted">
-              Your personalized {target.label} journey starts now
-            </Text>
-          </View>
+          className="items-center rounded-[20px] px-6 py-7"
+          style={{ backgroundColor: colors.primarySoft }}>
+          <Text className="text-4xl">📚</Text>
+          <Text className="mt-3 text-center text-base font-semibold text-ink">
+            Ready to start practicing {target.label}
+          </Text>
         </View>
 
-        {error ? (
-          <Text className="mt-4 text-sm font-semibold text-coral">{error}</Text>
-        ) : null}
-
-        <View className="mt-8">
-          <OnboardingFooter
-            label="Start first chat"
-            hint={null}
-            variant="dark"
-            showArrow
-            loading={starting}
-            onPress={startChat}
-          />
-        </View>
-      </ScrollView>
-    </View>
+        {error ? <ErrorCard message={error} onRetry={() => void startChat()} /> : null}
+      </View>
+    </OnboardingShell>
   );
 }

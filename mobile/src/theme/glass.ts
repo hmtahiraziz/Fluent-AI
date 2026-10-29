@@ -68,3 +68,39 @@ export const selectedRowStyle: ViewStyle = {
   borderColor: colors.primaryContainer,
   ...softShadow(2),
 };
+
+/** Flat white section — no elevation. Prefer over softShadow for redesigned surfaces. */
+export function flatSurface(extra?: ViewStyle): ViewStyle {
+  return {
+    borderRadius: radii.card,
+    backgroundColor: colors.surface,
+    ...extra,
+  };
+}
+
+/** Soft canvas-adjacent tint for list rows / chips. */
+export function flatTint(extra?: ViewStyle): ViewStyle {
+  return {
+    borderRadius: radii.card,
+    backgroundColor: colors.surfaceContainer,
+    ...extra,
+  };
+}
+
+/** Warm insight / tip panels using existing brand insight color. */
+export function flatInsight(extra?: ViewStyle): ViewStyle {
+  return {
+    borderRadius: radii.card,
+    backgroundColor: colors.insight,
+    ...extra,
+  };
+}
+
+/** Selected option fill using existing primary soft token. */
+export function flatSelected(extra?: ViewStyle): ViewStyle {
+  return {
+    borderRadius: radii.card,
+    backgroundColor: colors.primarySoft,
+    ...extra,
+  };
+}

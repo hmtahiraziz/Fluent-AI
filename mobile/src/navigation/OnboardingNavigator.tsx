@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useRef } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useOnboarding } from '../context/OnboardingContext';
 import { DailyGoalScreen } from '../screens/onboarding/DailyGoalScreen';
@@ -22,17 +22,18 @@ const STEP_ROUTES: Record<number, keyof OnboardingStackParamList> = {
 
 export function OnboardingNavigator() {
   const { draft } = useOnboarding();
-  const initialRoute = useMemo(
-    () => STEP_ROUTES[draft.step] ?? 'NativeLanguage',
-    [draft.step],
+  // Freeze initial route on first render so updating draft.step never resets the stack.
+  const initialRouteRef = useRef(
+    STEP_ROUTES[draft.step] ?? 'NativeLanguage',
   );
 
   return (
     <Stack.Navigator
-      initialRouteName={initialRoute}
+      initialRouteName={initialRouteRef.current}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
+        gestureEnabled: true,
       }}>
       <Stack.Screen name="NativeLanguage" component={NativeLanguageScreen} />
       <Stack.Screen name="TargetLanguage" component={TargetLanguageScreen} />

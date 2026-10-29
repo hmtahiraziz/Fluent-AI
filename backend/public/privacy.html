@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FluentAI — Privacy Policy</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+        color: #1a1a1a;
+      }
+      h1 { font-size: 1.5rem; }
+      h2 { font-size: 1.1rem; margin-top: 1.5rem; }
+    </style>
+  </head>
+  <body>
+    <h1>FluentAI Privacy Policy</h1>
+    <p><em>Last updated: 2026-03-27. Replace support contact before production launch.</em></p>
+
+    <h2>Who we are</h2>
+    <p>
+      FluentAI (“we”) provides a language-learning mobile app with AI tutoring.
+      Contact: <a href="mailto:privacy@fluentai.app">privacy@fluentai.app</a>
+      (configure <code>SUPPORT_EMAIL</code> / DNS to match your domain).
+    </p>
+
+    <h2>Data we collect</h2>
+    <ul>
+      <li>Account email and password hash</li>
+      <li>Learning settings (languages, level, daily goal, LLM consent)</li>
+      <li>Conversations, messages, vocabulary you save</li>
+      <li>Content reports you submit</li>
+      <li>On-device: profile display name, avatar image URI, practice streaks</li>
+    </ul>
+
+    <h2>How we use data</h2>
+    <p>
+      To authenticate you, personalize tutoring, enforce AI quotas, and improve safety.
+      After you consent in-app, chat content is sent to our language-model provider to generate replies.
+    </p>
+
+    <h2>Sharing</h2>
+    <p>
+      We do not sell personal data. Processors may include our database host, email (SMTP) provider,
+      and OpenAI (or configured model provider) for tutoring and moderation.
+    </p>
+
+    <h2>Age</h2>
+    <p>
+      FluentAI is for users 13+ (or the minimum digital consent age where you live).
+      We require age confirmation at signup.
+    </p>
+
+    <h2>Retention &amp; deletion</h2>
+    <p>
+      You can delete your account in the app (Profile → Privacy &amp; Security → Delete account)
+      or follow <a href="/public/account-deletion.html">account deletion instructions</a>.
+      Server-side account data is removed; model providers may retain data per their policies.
+    </p>
+
+    <h2>Security</h2>
+    <p>
+      Passwords are hashed (bcrypt). Sessions use short-lived access tokens and hashed refresh tokens.
+      Transport should use HTTPS in production.
+    </p>
+  </body>
+</html>

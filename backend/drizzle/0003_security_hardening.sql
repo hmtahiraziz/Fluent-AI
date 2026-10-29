@@ -1,0 +1,62 @@
+ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "llm_consent_version" text;
+ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "llm_consent_at" timestamp with time zone;
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "refresh_tokens" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"token_hash" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"revoked_at" timestamp with time zone,
+	"replaced_by_hash" text,
+	CONSTRAINT "refresh_tokens_token_hash_unique" UNIQUE("token_hash")
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "ai_daily_usage" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"usage_date" date NOT NULL,
+	"request_count" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "content_reports" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"conversation_id" uuid,
+	"message_id" uuid,
+	"reason" text NOT NULL,
+	"details" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "ai_daily_usage" ADD CONSTRAINT "ai_daily_usage_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "content_reports" ADD CONSTRAINT "content_reports_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "content_reports" ADD CONSTRAINT "content_reports_conversation_id_conversations_id_fk" FOREIGN KEY ("conversation_id") REFERENCES "public"."conversations"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "content_reports" ADD CONSTRAINT "content_reports_message_id_messages_id_fk" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "conversations_user_id_idx" ON "conversations" USING btree ("user_id");
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "messages_conversation_id_idx" ON "messages" USING btree ("conversation_id");
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "vocabulary_items_user_id_idx" ON "vocabulary_items" USING btree ("user_id");
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "password_reset_tokens_hash_idx" ON "password_reset_tokens" USING btree ("token_hash");
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "refresh_tokens_user_id_idx" ON "refresh_tokens" USING btree ("user_id");
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "ai_daily_usage_user_date_uidx" ON "ai_daily_usage" USING btree ("user_id","usage_date");
