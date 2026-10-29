@@ -1,8 +1,12 @@
 export { GlassCard } from './GlassCard';
+export { Surface } from './Surface';
 export { SplitHeadline } from './SplitHeadline';
 export { SelectionRow } from './SelectionRow';
 export { AuthField } from './AuthField';
+export { AuthHeader } from './AuthHeader';
+export { AppScreenHeader } from './AppScreenHeader';
 export { AuthScreenLayout } from './AuthScreenLayout';
+export { OtpCodeInput } from './OtpCodeInput';
 export { OnboardingShell } from './OnboardingShell';
 export { OnboardingFooter } from './OnboardingFooter';
 export { PressableScale } from './PressableScale';

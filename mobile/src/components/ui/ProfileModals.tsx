@@ -3,16 +3,16 @@ import {
   Dimensions,
   Modal,
   Pressable,
-  ScrollView,
-  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../Button';
 import { CefrLevelCard } from './CefrLevelCard';
 import { DailyGoalOptionCard } from './DailyGoalOptionCard';
+import { FloatingInput } from './FloatingInput';
 import { LanguageOptionCard } from './LanguageOptionCard';
 import { ProfileSection } from './ProfileSections';
 import {
@@ -23,6 +23,7 @@ import {
   languageMeta,
   type CefrLevel,
 } from '../../config/constants';
+import { bottomChromePadding } from '../../theme/safeArea';
 import { LanguagePickerModal } from './LanguagePickerModal';
 import { colors } from '../../theme/tokens';
 
@@ -53,7 +54,7 @@ function SettingsSheet({
           className="rounded-t-[32px] bg-canvas px-5 pt-3"
           style={{
             maxHeight: sheetMaxHeight,
-            paddingBottom: Math.max(insets.bottom, 16),
+            paddingBottom: bottomChromePadding(insets.bottom),
           }}>
           <View className="shrink-0 pb-3">
             <View className="mb-4 items-center">
@@ -75,13 +76,14 @@ function SettingsSheet({
             </View>
           </View>
 
-          <ScrollView
+          <KeyboardAwareScrollView
+            bottomOffset={24}
             showsVerticalScrollIndicator={false}
             style={{ flexGrow: 0, flexShrink: 1 }}
-            contentContainerStyle={{ paddingBottom: footer ? 12 : 8 }}
+            contentContainerStyle={{ paddingBottom: footer ? 16 : 20 }}
             keyboardShouldPersistTaps="handled">
             {children}
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
           {footer ? (
             <View
@@ -250,8 +252,8 @@ export function PersonalInfoModal({
           style={{ backgroundColor: colors.insight }}>
           <Text className="text-lg">💡</Text>
           <Text className="flex-1 text-sm leading-5 text-tertiary">
-            Tap <Text className="font-bold">Save Changes</Text> on your profile to sync these
-            updates with your account.
+            Tap <Text className="font-bold">Apply Changes</Text> to save your name and
+            learning preferences to this account.
           </Text>
         </View>
       </SettingsSheet>
@@ -276,128 +278,121 @@ export function PersonalInfoModal({
   );
 }
 
-type EmailNotificationsModalProps = {
-  visible: boolean;
-  practiceReminders: boolean;
-  weeklyDigest: boolean;
-  onTogglePractice: (v: boolean) => void;
-  onToggleDigest: (v: boolean) => void;
-  onClose: () => void;
-};
-
-export function EmailNotificationsModal({
-  visible,
-  practiceReminders,
-  weeklyDigest,
-  onTogglePractice,
-  onToggleDigest,
-  onClose,
-}: EmailNotificationsModalProps) {
-  return (
-    <SettingsSheet visible={visible} title="Email Notifications" onClose={onClose}>
-      <Text className="mb-4 text-base leading-6 text-ink-muted">
-        Choose which updates FluentAI sends to your inbox.
-      </Text>
-      <View className="mb-3 flex-row items-center justify-between rounded-2xl bg-surface-container-low px-4 py-4">
-        <View className="flex-1 pr-4">
-          <Text className="text-base font-medium text-ink">Practice reminders</Text>
-          <Text className="mt-1 text-sm text-ink-muted">Daily nudge to keep your streak</Text>
-        </View>
-        <Switch
-          value={practiceReminders}
-          onValueChange={onTogglePractice}
-          trackColor={{ false: colors.border, true: colors.secondaryContainer }}
-          thumbColor={colors.surface}
-        />
-      </View>
-      <View className="mb-3 flex-row items-center justify-between rounded-2xl bg-surface-container-low px-4 py-4">
-        <View className="flex-1 pr-4">
-          <Text className="text-base font-medium text-ink">Weekly progress digest</Text>
-          <Text className="mt-1 text-sm text-ink-muted">Summary of words and chat time</Text>
-        </View>
-        <Switch
-          value={weeklyDigest}
-          onValueChange={onToggleDigest}
-          trackColor={{ false: colors.border, true: colors.secondaryContainer }}
-          thumbColor={colors.surface}
-        />
-      </View>
-      <Button title="Done" variant="lavender" className="mt-2" onPress={onClose} />
-    </SettingsSheet>
-  );
-}
-
-const APPEARANCE_OPTIONS = ['Light', 'Dark', 'System'] as const;
-export type AppearanceOption = (typeof APPEARANCE_OPTIONS)[number];
-
-type AppearanceModalProps = {
-  visible: boolean;
-  selected: AppearanceOption;
-  onSelect: (option: AppearanceOption) => void;
-  onClose: () => void;
-};
-
-export function AppearanceModal({ visible, selected, onSelect, onClose }: AppearanceModalProps) {
-  return (
-    <SettingsSheet visible={visible} title="Appearance" onClose={onClose}>
-      <Text className="mb-4 text-base leading-6 text-ink-muted">
-        Select how FluentAI looks on your device.
-      </Text>
-      {APPEARANCE_OPTIONS.map(option => (
-        <Pressable
-          key={option}
-          onPress={() => onSelect(option)}
-          className="mb-2 flex-row items-center justify-between rounded-2xl px-4 py-4"
-          style={{
-            backgroundColor:
-              selected === option ? colors.primarySoft : colors.surfaceContainerLow,
-          }}>
-          <Text className="text-base font-medium text-ink">{option}</Text>
-          {selected === option ? (
-            <Text className="text-base font-bold text-brand">✓</Text>
-          ) : null}
-        </Pressable>
-      ))}
-      <Button title="Done" variant="lavender" className="mt-2" onPress={onClose} />
-    </SettingsSheet>
-  );
-}
-
 type PrivacyModalProps = {
   visible: boolean;
   onClose: () => void;
+  onOpenPrivacyPolicy?: () => void;
+  onDeleteAccount?: () => void;
 };
 
-export function PrivacyModal({ visible, onClose }: PrivacyModalProps) {
+export function PrivacyModal({
+  visible,
+  onClose,
+  onOpenPrivacyPolicy,
+  onDeleteAccount,
+}: PrivacyModalProps) {
   return (
     <SettingsSheet visible={visible} title="Privacy & Security" onClose={onClose}>
       <Text className="mb-4 text-base leading-6 text-ink-muted">
-        Your conversations and vocabulary are stored securely and used only to personalize your
-        tutoring experience.
+        Conversations and vocabulary are stored with your account and used to personalize tutoring.
+        AI replies are generated by a third-party language model.
       </Text>
       {[
         {
           title: 'Data storage',
-          body: 'Messages and saved words are encrypted in transit and tied to your account.',
+          body: 'Messages and saved words are sent over HTTPS and tied to your account on our servers.',
         },
         {
           title: 'AI processing',
-          body: 'Chat content is sent to our language model to generate tutor replies and corrections.',
+          body: 'After you consent, chat content is sent to our language model to generate tutor replies and corrections. Safety filters may block unsafe content.',
         },
         {
           title: 'Your control',
-          body: 'You can delete saved vocabulary anytime and log out to end your session.',
+          body: 'You can delete vocabulary, log out (ending refresh sessions), or permanently delete your account.',
+        },
+        {
+          title: 'Age',
+          body: 'FluentAI is intended for users 13 and older (or the minimum digital consent age in your country).',
         },
       ].map(item => (
         <View
           key={item.title}
-          className="mb-3 rounded-2xl border px-4 py-4"
-          style={{ borderColor: colors.border, backgroundColor: colors.surfaceContainerLow }}>
+          className="mb-3 rounded-2xl px-4 py-4"
+          style={{ backgroundColor: colors.surfaceContainerLow }}>
           <Text className="text-base font-bold text-ink">{item.title}</Text>
           <Text className="mt-1 text-sm leading-5 text-ink-muted">{item.body}</Text>
         </View>
       ))}
+      {onOpenPrivacyPolicy ? (
+        <Button
+          title="View Privacy Policy"
+          variant="outline"
+          className="mt-2"
+          onPress={onOpenPrivacyPolicy}
+        />
+      ) : null}
       <Button title="Got it" variant="lavender" className="mt-2" onPress={onClose} />
+      {onDeleteAccount ? (
+        <Button
+          title="Delete account"
+          variant="danger"
+          className="mt-3"
+          onPress={onDeleteAccount}
+        />
+      ) : null}
+    </SettingsSheet>
+  );
+}
+
+type DeleteAccountModalProps = {
+  visible: boolean;
+  loading?: boolean;
+  error?: string;
+  onClose: () => void;
+  onConfirm: (password: string) => void;
+};
+
+export function DeleteAccountModal({
+  visible,
+  loading,
+  error,
+  onClose,
+  onConfirm,
+}: DeleteAccountModalProps) {
+  const [password, setPassword] = useState('');
+
+  return (
+    <SettingsSheet
+      visible={visible}
+      title="Delete account"
+      onClose={() => {
+        setPassword('');
+        onClose();
+      }}>
+      <Text className="mb-4 text-base leading-6 text-ink-muted">
+        This permanently deletes your account, chats, vocabulary, and sessions. This cannot be
+        undone.
+      </Text>
+      {error ? (
+        <Text className="mb-3 text-sm font-medium text-coral">{error}</Text>
+      ) : null}
+      <FloatingInput
+        label="Password"
+        secureTextEntry
+        textContentType="password"
+        autoComplete="password"
+        value={password}
+        onChangeText={setPassword}
+        placeholder="Confirm with your password"
+      />
+      <Button
+        title="Delete forever"
+        variant="danger"
+        loading={loading}
+        disabled={!password || loading}
+        className="mt-2"
+        onPress={() => onConfirm(password)}
+      />
     </SettingsSheet>
   );
 }

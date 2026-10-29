@@ -6,7 +6,7 @@ import { getErrorMessage } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import type { AuthStackParamList } from '../../navigation/types';
 import { Button } from '../../components/Button';
-import { FluentAIBrand } from '../../components/brand/FluentAILogo';
+import { AuthHeader } from '../../components/ui/AuthHeader';
 import { ErrorCard } from '../../components/ui/ErrorCard';
 import { AuthScreenLayout } from '../../components/ui/AuthScreenLayout';
 import { FloatingInput } from '../../components/ui/FloatingInput';
@@ -71,17 +71,7 @@ export function SignInScreen({ navigation, route }: Props) {
       centerContent
       contentPaddingTop={isTablet ? spacing.lg : 0}
       bottomPadding={spacing.section}
-      header={
-        <View
-          className="bg-canvas"
-          style={{
-            paddingTop: insets.top + spacing.sm,
-            paddingBottom: spacing.md,
-            paddingHorizontal: horizontalPadding,
-          }}>
-          <FluentAIBrand iconSize={40} />
-        </View>
-      }
+      header={<AuthHeader horizontalPadding={horizontalPadding} />}
       footer={
         <View
           style={{
@@ -90,7 +80,7 @@ export function SignInScreen({ navigation, route }: Props) {
             paddingBottom: Math.max(insets.bottom, spacing.lg),
           }}>
           <Text className="text-center text-xs font-medium text-ink-faint opacity-50">
-            © 2024 FluentAI. All rights reserved.
+            © 2026 FluentAI. All rights reserved.
           </Text>
         </View>
       }
@@ -127,8 +117,10 @@ export function SignInScreen({ navigation, route }: Props) {
 
         <View>
           {resetNotice ? (
-            <View className="mb-4 rounded-card border border-success/30 bg-surface p-4">
-              <Text className="text-sm leading-5 text-ink">{resetNotice}</Text>
+            <View
+              className="mb-4 rounded-[20px] p-4"
+              style={{ backgroundColor: '#e8f8f1' }}>
+              <Text className="text-sm font-medium leading-5 text-ink">{resetNotice}</Text>
             </View>
           ) : null}
           {error ? <ErrorCard message={error} onRetry={onSubmit} /> : null}

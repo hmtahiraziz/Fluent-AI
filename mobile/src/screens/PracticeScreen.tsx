@@ -1,12 +1,16 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as api from '../api/endpoints';
-import type { Conversation, VocabularyItem } from '../api/types';
+import type { Conversation, VocabularyStats, WeeklyProgress } from '../api/types';
 import { getErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useProfile } from '../hooks/useProfile';
+import { FluentAIBrand } from '../components/brand/FluentAILogo';
 import { Screen } from '../components/Screen';
 import { ErrorCard } from '../components/ui/ErrorCard';
 import { PressableScale } from '../components/ui/PressableScale';
@@ -14,82 +18,181 @@ import { ProfileAvatar } from '../components/ui/ProfileAvatar';
 import { StreakBadge } from '../components/ui/StreakBadge';
 import { SkeletonList } from '../components/ui/Shimmer';
 import { DailyGoalWidget } from '../components/widgets/DailyGoalWidget';
-import { FOR_YOU_ITEMS, HOME_TOPIC_CHIPS, LEARNING_TIP } from '../constants/homeContent';
+import { WeeklyProgressCard } from '../components/widgets/WeeklyProgressCard';
+import { WordsSavedCard } from '../components/widgets/WordsSavedCard';
+import { retryPendingPracticeSync } from '../services/practiceSync';
+import { learningTipForDay } from '../constants/homeContent';
 import {
   findResumableConversation,
   getOtherLanguageConversations,
+  getPracticeTopics,
+  isPracticeTopic,
+  LanguagePairPill,
   PracticeChatHero,
   RecentConversations,
+  rankHomeRecommendations,
   useChatLauncher,
   useLanguagePair,
+  type HomeRecommendation,
+  type PracticeTopicChip,
 } from '../features/chat';
 import { getStreakDisplay } from '../services/streakStorage';
+import {
+  getTodayPracticeMinutes,
+  localDayKey,
+  startOfLocalDay,
+} from '../services/practiceTimeStorage';
 import { useResponsive } from '../hooks/useResponsive';
+import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/tokens';
-import { softShadow } from '../theme/glass';
+
+type HomeNav = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, 'Practice'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+
+const TOPIC_ICONS: Record<string, string> = {
+  grammar: '🎓',
+  culture: '🌍',
+  business: '💼',
+  travel: '✈️',
+};
+
+function timeGreeting(date = new Date()): string {
+  const hour = date.getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function motivationalLine(practiceMinutes: number, streakLabel: string): string {
+  if (practiceMinutes > 0) return "Keep going! You're making great progress.";
+  if (streakLabel !== 'Start today') return 'Nice streak — a short practice keeps it alive.';
+  return 'A few minutes today builds lasting fluency.';
+}
 
 function HomeHeader({
   name,
   initials,
   avatarUri,
   streakLabel,
+  languagePair,
+  practiceMinutes,
+  onLanguagePress,
+  onProfilePress,
 }: {
   name: string;
   initials: string;
   avatarUri: string | null;
   streakLabel: string;
+  languagePair: ReturnType<typeof useLanguagePair>;
+  practiceMinutes: number;
+  onLanguagePress: () => void;
+  onProfilePress: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const { horizontalPadding } = useResponsive();
+  const { horizontalPadding, isTablet } = useResponsive();
+  const topPad = insets.top + (isTablet ? 12 : 8);
+  const firstName = name.trim().split(/\s+/)[0] || name;
 
   return (
     <View
-      className="mb-6 flex-row items-center justify-between gap-2 bg-canvas"
+      className="mb-4 bg-canvas"
       style={{
-        marginTop: -(insets.top + 8),
-        paddingTop: insets.top + 8,
+        marginTop: -topPad,
+        paddingTop: topPad,
         marginHorizontal: -horizontalPadding,
         paddingHorizontal: horizontalPadding,
-        paddingBottom: 8,
+        paddingBottom: 4,
       }}>
-      <View className="min-w-0 flex-1 flex-row items-center gap-3">
-        <ProfileAvatar uri={avatarUri} initials={initials} name={name} size="sm" />
-        <View className="min-w-0 flex-1">
-          <Text className="text-xs font-medium text-ink-muted">Welcome back,</Text>
-          <Text className="text-2xl font-bold leading-none text-brand" numberOfLines={1}>
-            {name}
-          </Text>
+      <View className="mb-4 flex-row items-center justify-between gap-2">
+        <FluentAIBrand
+          iconSize={32}
+          wordmarkClassName="text-xl font-extrabold text-brand"
+        />
+        <View className="flex-row items-center gap-2.5">
+          <StreakBadge label={streakLabel} />
+          <PressableScale onPress={onProfilePress} accessibilityLabel="Open profile">
+            <ProfileAvatar uri={avatarUri} initials={initials} name={name} size="sm" />
+          </PressableScale>
         </View>
       </View>
-      <StreakBadge label={streakLabel} />
+
+      <View className="min-w-0 pr-1">
+        <Text className="text-[15px] font-semibold leading-5 text-ink-muted">
+          {timeGreeting()},
+        </Text>
+        <Text
+          className="mt-0.5 text-[26px] font-extrabold leading-8 text-ink"
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.85}>
+          {firstName} 👋
+        </Text>
+        <Text className="mt-1.5 text-sm leading-5 text-ink-muted" numberOfLines={2}>
+          {motivationalLine(practiceMinutes, streakLabel)}
+        </Text>
+
+        <PressableScale
+          onPress={onLanguagePress}
+          className="mt-3 self-start"
+          accessibilityLabel={`${languagePair.label}, CEFR ${languagePair.level}. Open language settings`}>
+          <LanguagePairPill
+            native={languagePair.native}
+            target={languagePair.target}
+            level={languagePair.level}
+            compact
+            style={{
+              borderWidth: 1,
+              borderColor: colors.borderLight,
+              backgroundColor: colors.surface,
+            }}
+          />
+        </PressableScale>
+      </View>
     </View>
   );
 }
 
 function TopicChipRow({
-  activeLabel,
+  topics,
+  activeId,
   onSelect,
+  disabled,
 }: {
-  activeLabel: string | null;
-  onSelect: (chip: (typeof HOME_TOPIC_CHIPS)[number]) => void;
+  topics: PracticeTopicChip[];
+  activeId: string | null;
+  onSelect: (chip: PracticeTopicChip) => void;
+  disabled?: boolean;
 }) {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-      {HOME_TOPIC_CHIPS.map(chip => {
-        const active = activeLabel === chip.label;
+      contentContainerStyle={{ gap: 10, paddingVertical: 2, paddingRight: 8 }}>
+      {topics.map(chip => {
+        const active = activeId === chip.id;
+        const icon = TOPIC_ICONS[chip.id] ?? '✨';
         return (
-          <PressableScale key={chip.label} onPress={() => onSelect(chip)}>
+          <PressableScale
+            key={chip.id}
+            onPress={() => onSelect(chip)}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active, disabled: Boolean(disabled) }}
+            accessibilityLabel={`Practice ${chip.label}`}>
             <View
-              className="rounded-full px-6 py-2.5"
+              className="flex-row items-center gap-2 rounded-full px-4"
               style={{
-                backgroundColor: active ? colors.secondaryContainer : colors.surfaceContainer,
+                backgroundColor: active ? colors.secondary : colors.surfaceContainer,
+                minHeight: 44,
+                justifyContent: 'center',
+                opacity: disabled ? 0.6 : 1,
               }}>
+              <Text className="text-sm">{icon}</Text>
               <Text
                 className="text-sm font-bold"
-                style={{ color: active ? colors.onSecondaryContainer : colors.inkMuted }}>
+                style={{ color: active ? '#fff' : colors.inkMuted }}>
                 {chip.label}
               </Text>
             </View>
@@ -101,49 +204,101 @@ function TopicChipRow({
 }
 
 function ForYouCard({
-  title,
-  meta,
-  emoji,
+  item,
   onPress,
+  disabled,
 }: {
-  title: string;
-  meta: string;
-  emoji: string;
+  item: HomeRecommendation;
   onPress: () => void;
+  disabled?: boolean;
 }) {
+  const meta =
+    item.id === 'travel-ready' || item.category === 'Travel'
+      ? `Motivation • ${item.category}`
+      : `${item.durationMinutes} min • ${item.category}`;
+
   return (
-    <PressableScale onPress={onPress}>
+    <PressableScale onPress={onPress} disabled={disabled}>
       <View
-        className="mb-3 flex-row items-center gap-4 rounded-[24px] p-4"
-        style={[{ backgroundColor: colors.surface }, softShadow()]}>
+        className="mb-3 flex-row items-center gap-3.5 rounded-[22px] p-3.5"
+        style={{
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.borderLight,
+          opacity: disabled ? 0.6 : 1,
+        }}>
         <View
-          className="h-16 w-16 items-center justify-center overflow-hidden rounded-2xl"
+          className="h-14 w-14 items-center justify-center rounded-2xl"
           style={{ backgroundColor: colors.primarySoft }}>
-          <Text className="text-2xl">{emoji}</Text>
+          <Text className="text-2xl">{item.emoji}</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-sm font-bold text-ink">{title}</Text>
-          <Text className="mt-0.5 text-base text-ink-muted">{meta}</Text>
+          <Text className="text-base font-bold text-ink">{item.title}</Text>
+          <Text className="mt-0.5 text-xs font-semibold text-ink-muted">{meta}</Text>
+          <Text className="mt-1 text-xs leading-4 text-ink-faint" numberOfLines={2}>
+            {item.description}
+          </Text>
         </View>
-        <Text className="text-xl text-ink-faint">›</Text>
+        <Text className="text-lg text-ink-faint">›</Text>
       </View>
     </PressableScale>
   );
 }
 
 export function PracticeScreen() {
-  const { settings, refreshSettings } = useAuth();
+  const navigation = useNavigation<HomeNav>();
+  const { user, settings, refreshSettings } = useAuth();
   const languagePair = useLanguagePair();
   const { startNewChat, resumeConversation, creating, error, setError } = useChatLauncher();
   const { resolvedName, initials, avatarUri, reload } = useProfile();
   const { isTablet } = useResponsive();
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [vocabStats, setVocabStats] = useState<VocabularyStats | null>(null);
+  const [practiceMinutes, setPracticeMinutes] = useState(0);
+  const [weekly, setWeekly] = useState<WeeklyProgress | null>(null);
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+  const [weeklyError, setWeeklyError] = useState('');
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [streakLabel, setStreakLabel] = useState('Start today');
-  const [activeTopic, setActiveTopic] = useState<string | null>('Grammar');
+  const [activeTopicId, setActiveTopicId] = useState<string | null>('grammar');
+  const [conversationsError, setConversationsError] = useState('');
+  const [statsError, setStatsError] = useState('');
+  const [showAllForYou, setShowAllForYou] = useState(false);
+  const [dayKey] = useState(() => localDayKey());
+  const requestIdRef = useRef(0);
+  const weeklyRequestIdRef = useRef(0);
+  const hasDataRef = useRef(false);
 
   const dailyGoal = settings?.dailyGoalMinutes ?? 10;
+  const practiceTopics = useMemo(
+    () => getPracticeTopics(languagePair.targetCode),
+    [languagePair.targetCode],
+  );
+
+  const forYouAll = useMemo(
+    () =>
+      rankHomeRecommendations({
+        targetLanguage: languagePair.targetCode,
+        cefrLevel: settings?.level ?? languagePair.level,
+        motivation: settings?.motivation,
+        activeTopicId,
+        dayKey,
+        limit: 4,
+      }),
+    [
+      languagePair.targetCode,
+      languagePair.level,
+      settings?.level,
+      settings?.motivation,
+      activeTopicId,
+      dayKey,
+    ],
+  );
+
+  const forYouItems = showAllForYou ? forYouAll : forYouAll.slice(0, 2);
+  const learningTip = useMemo(() => learningTipForDay(dayKey), [dayKey]);
 
   const resumable = useMemo(() => {
     if (!settings) return null;
@@ -155,53 +310,141 @@ export function PracticeScreen() {
     return getOtherLanguageConversations(conversations, settings);
   }, [conversations, settings]);
 
-  const goalProgress = useMemo(() => {
-    const today = new Date().toDateString();
-    const todayChats = conversations.filter(
-      c => new Date(c.createdAt).toDateString() === today,
-    ).length;
-    return Math.min(100, (todayChats / Math.max(dailyGoal / 5, 1)) * 100);
-  }, [conversations, dailyGoal]);
+  const loadConversations = useCallback(async () => {
+    try {
+      const list = await api.fetchConversations();
+      setConversations(list);
+      setConversationsError('');
+      return list;
+    } catch (e) {
+      setConversationsError(getErrorMessage(e));
+      throw e;
+    }
+  }, []);
 
-  const wordsToday = useMemo(() => {
-    const today = new Date().toDateString();
-    return vocabulary.filter(w => new Date(w.createdAt).toDateString() === today).length;
-  }, [vocabulary]);
+  const loadStats = useCallback(async () => {
+    try {
+      const since = startOfLocalDay().toISOString();
+      const stats = await api.fetchVocabularyStats(undefined, { createdSince: since });
+      setVocabStats(stats);
+      setStatsError('');
+    } catch (e) {
+      setStatsError(getErrorMessage(e));
+    }
+  }, []);
+
+  const loadWeekly = useCallback(async () => {
+    const requestId = ++weeklyRequestIdRef.current;
+    setWeeklyLoading(true);
+    try {
+      await retryPendingPracticeSync(user?.id);
+      if (requestId !== weeklyRequestIdRef.current) return;
+      const timeZone =
+        Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      const data = await api.fetchWeeklyProgress(timeZone);
+      if (requestId !== weeklyRequestIdRef.current) return;
+      setWeekly(data);
+      setWeeklyError('');
+    } catch (e) {
+      if (requestId !== weeklyRequestIdRef.current) return;
+      setWeeklyError(getErrorMessage(e));
+    } finally {
+      if (requestId === weeklyRequestIdRef.current) {
+        setWeeklyLoading(false);
+      }
+    }
+  }, [user?.id]);
 
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    if (hasDataRef.current) setRefreshing(true);
+
     try {
-      const [list, words] = await Promise.all([
-        api.fetchConversations(),
-        api.fetchVocabulary(),
+      const [, , streak, minutes] = await Promise.all([
+        loadConversations().catch(() => null),
+        loadStats(),
+        getStreakDisplay(user?.id),
+        getTodayPracticeMinutes(user?.id),
+        loadWeekly(),
       ]);
-      setConversations(list);
-      setVocabulary(words);
-      setStreakLabel(await getStreakDisplay());
+      if (requestId !== requestIdRef.current) return;
+      setStreakLabel(streak);
+      setPracticeMinutes(minutes);
+      hasDataRef.current = true;
       setError('');
     } catch (e) {
+      if (requestId !== requestIdRef.current) return;
       setError(getErrorMessage(e));
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setInitialLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [setError]);
+  }, [loadConversations, loadStats, loadWeekly, setError, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
       void refreshSettings();
       void load();
       void reload();
+      return () => {
+        requestIdRef.current += 1;
+        weeklyRequestIdRef.current += 1;
+      };
     }, [refreshSettings, load, reload]),
   );
 
-  if (loading) {
+  const startTopicChat = useCallback(
+    (chip: PracticeTopicChip) => {
+      const topic = isPracticeTopic(chip.id) ? chip.id : undefined;
+      setActiveTopicId(chip.id);
+      void startNewChat({
+        topic,
+        scenario: chip.label,
+        initialPrompt: chip.prompt,
+        source: topic ? 'home_topic' : 'home_new',
+      });
+    },
+    [startNewChat],
+  );
+
+  const onStartLearning = useCallback(() => {
+    const chip = practiceTopics.find(t => t.id === activeTopicId);
+    if (chip) {
+      startTopicChat(chip);
+      return;
+    }
+    void startNewChat({ source: 'home_new' });
+  }, [activeTopicId, practiceTopics, startNewChat, startTopicChat]);
+
+  const onRecommendation = useCallback(
+    (item: HomeRecommendation) => {
+      void startNewChat({
+        topic: item.topic,
+        scenario: item.scenario,
+        initialPrompt: item.prompt,
+        source: 'home_recommendation',
+      });
+    },
+    [startNewChat],
+  );
+
+  const headerProps = {
+    name: resolvedName,
+    initials,
+    avatarUri,
+    streakLabel,
+    languagePair,
+    practiceMinutes,
+    onLanguagePress: () => navigation.navigate('Settings'),
+    onProfilePress: () => navigation.navigate('Settings'),
+  };
+
+  if (initialLoading) {
     return (
       <Screen hasTabBar scroll>
-        <HomeHeader
-          name={resolvedName}
-          initials={initials}
-          avatarUri={avatarUri}
-          streakLabel={streakLabel}
-        />
+        <HomeHeader {...headerProps} />
         <SkeletonList count={4} />
       </Screen>
     );
@@ -209,87 +452,73 @@ export function PracticeScreen() {
 
   return (
     <Screen scroll hasTabBar>
-      <HomeHeader
-        name={resolvedName}
-        initials={initials}
-        avatarUri={avatarUri}
-        streakLabel={streakLabel}
-      />
+      <HomeHeader {...headerProps} />
+
+      {refreshing ? (
+        <View className="mb-3 flex-row items-center justify-center gap-2 py-1">
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text className="text-xs font-medium text-ink-muted">Updating…</Text>
+        </View>
+      ) : null}
 
       <PracticeChatHero
-        languagePair={languagePair}
         resumable={resumable}
-        onStartNew={() => void startNewChat()}
+        onStartNew={onStartLearning}
         onResume={() => resumable && resumeConversation(resumable)}
         loading={creating}
       />
 
-      <View className="mb-6">
+      {conversationsError ? (
+        <View className="mb-4">
+          <ErrorCard
+            message={conversationsError}
+            onRetry={() => void loadConversations().catch(() => undefined)}
+          />
+        </View>
+      ) : null}
+
+      <View className="mb-5">
         <TopicChipRow
-          activeLabel={activeTopic}
-          onSelect={chip => {
-            setActiveTopic(chip.label);
-            void startNewChat(chip.prompt);
-          }}
+          topics={practiceTopics}
+          activeId={activeTopicId}
+          disabled={creating}
+          onSelect={startTopicChat}
         />
       </View>
 
-      <View className={`mb-4 gap-4 ${isTablet ? 'flex-row' : 'flex-row flex-wrap'}`}>
-        <View className="min-w-[45%] flex-1">
-          <DailyGoalWidget minutes={dailyGoal} progress={goalProgress} />
+      <View className={`mb-5 gap-3 ${isTablet ? 'flex-row' : 'flex-row'}`}>
+        <View className="min-w-0 flex-1">
+          <DailyGoalWidget goalMinutes={dailyGoal} completedMinutes={practiceMinutes} />
         </View>
-        <View
-          className="min-w-[45%] flex-1 justify-between rounded-[24px] p-5"
-          style={[{ backgroundColor: colors.surface, minHeight: 180 }, softShadow()]}>
-          <View className="flex-row items-start justify-between">
-            <Text className="text-xs font-medium text-ink-muted">Words Saved</Text>
-            <Text className="text-lg" style={{ color: colors.secondary }}>
-              📖
-            </Text>
-          </View>
-          <View className="mt-4">
-            <Text className="text-[40px] font-extrabold leading-none text-ink">
-              {vocabulary.length}
-            </Text>
-            <Text className="mt-1 text-xs font-medium text-ink-muted">
-              {wordsToday > 0 ? `+${wordsToday} today` : 'From tutor corrections'}
-            </Text>
-          </View>
-          <View
-            className="mt-4 h-1 overflow-hidden rounded-full"
-            style={{ backgroundColor: colors.surfaceContainer }}>
-            <View
-              className="h-full rounded-full"
-              style={{
-                width: `${Math.min(100, vocabulary.length > 0 ? 66 : 0)}%`,
-                backgroundColor: colors.secondary,
-              }}
-            />
-          </View>
+        <View className="min-w-0 flex-1">
+          <WordsSavedCard
+            total={vocabStats?.total ?? 0}
+            today={vocabStats?.createdToday ?? 0}
+            error={statsError}
+            onRetry={() => void loadStats()}
+            onPress={() => navigation.navigate('Vocabulary')}
+          />
         </View>
       </View>
 
-      <RecentConversations
-        conversations={otherConversations}
-        currentTarget={languagePair.targetCode}
-        onOpen={resumeConversation}
+      <WeeklyProgressCard
+        data={weekly}
+        loading={weeklyLoading}
+        error={weeklyError}
+        onRetry={() => void loadWeekly()}
       />
 
       <View
-        className="mb-8 flex-row items-center gap-4 rounded-[24px] p-5"
-        style={{ backgroundColor: colors.primaryContainer }}>
-        <View className="rounded-2xl p-3" style={{ backgroundColor: colors.primary }}>
-          <Text className="text-lg text-white">💡</Text>
+        className="mb-6 flex-row items-center gap-3.5 rounded-[22px] px-4 py-4"
+        style={{ backgroundColor: colors.primarySoft }}>
+        <View
+          className="h-11 w-11 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: colors.surface }}>
+          <Text className="text-lg">💡</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-sm font-bold" style={{ color: colors.onPrimaryContainer }}>
-            Learning Tip
-          </Text>
-          <Text
-            className="mt-1 text-base leading-6"
-            style={{ color: colors.onPrimaryContainer, opacity: 0.9 }}>
-            {LEARNING_TIP}
-          </Text>
+          <Text className="text-sm font-bold text-brand">Learning Tip</Text>
+          <Text className="mt-1 text-sm leading-5 text-ink-muted">{learningTip}</Text>
         </View>
       </View>
 
@@ -299,16 +528,35 @@ export function PracticeScreen() {
         </View>
       ) : null}
 
-      <Text className="mb-4 px-1 text-2xl font-bold text-ink">For You</Text>
-      {FOR_YOU_ITEMS.map(item => (
+      <View className="mb-3 flex-row items-center justify-between px-0.5">
+        <Text className="text-lg font-extrabold text-ink">For You</Text>
+        {forYouAll.length > 2 ? (
+          <PressableScale
+            onPress={() => setShowAllForYou(v => !v)}
+            accessibilityLabel={showAllForYou ? 'Show fewer recommendations' : 'See all recommendations'}>
+            <Text className="text-sm font-semibold text-brand">
+              {showAllForYou ? 'Show less' : 'See all ›'}
+            </Text>
+          </PressableScale>
+        ) : null}
+      </View>
+
+      {forYouItems.map(item => (
         <ForYouCard
           key={item.id}
-          title={item.title}
-          meta={item.meta}
-          emoji={item.emoji}
-          onPress={() => void startNewChat(item.prompt)}
+          item={item}
+          disabled={creating}
+          onPress={() => onRecommendation(item)}
         />
       ))}
+
+      <View className="mt-2">
+        <RecentConversations
+          conversations={otherConversations}
+          currentTarget={languagePair.targetCode}
+          onOpen={resumeConversation}
+        />
+      </View>
     </Screen>
   );
 }
