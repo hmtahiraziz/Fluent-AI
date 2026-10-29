@@ -1,20 +1,16 @@
 import React, { useEffect } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import type { TabRouteName } from '../theme/tabBar';
-import { colors } from '../theme/tokens';
+import { colors, radii } from '../theme/tokens';
+import { TabIcon } from './TabIcons';
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-const TAB_ICONS: Record<TabRouteName, { active: string; inactive: string }> = {
-  Practice: { active: '🏠', inactive: '🏠' },
-  Vocabulary: { active: '📖', inactive: '📖' },
-  Settings: { active: '👤', inactive: '👤' },
-};
+const INDICATOR_TIMING = { duration: 180 } as const;
 
 type TabBarItemProps = {
   name: TabRouteName;
@@ -24,7 +20,6 @@ type TabBarItemProps = {
   onLongPress: () => void;
   compact: boolean;
   iconSize: number;
-  dark?: boolean;
 };
 
 export function TabBarItem({
@@ -34,64 +29,100 @@ export function TabBarItem({
   onPress,
   onLongPress,
   compact,
-  dark = true,
+  iconSize,
 }: TabBarItemProps) {
-  const scale = useSharedValue(focused ? 1 : 0.95);
+  const progress = useSharedValue(focused ? 1 : 0);
 
   useEffect(() => {
-    scale.value = withSpring(focused ? 1 : 0.95, { damping: 18, stiffness: 280 });
-  }, [focused, scale]);
+    progress.value = withTiming(focused ? 1 : 0, INDICATOR_TIMING);
+  }, [focused, progress]);
 
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+  const indicatorStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ['transparent', colors.primarySoft],
+    ),
   }));
 
-  const icon = TAB_ICONS[name];
+  const labelStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      progress.value,
+      [0, 1],
+      [colors.inkFaint, colors.primary],
+    ),
+  }));
+
+  const iconColor = focused ? colors.primary : colors.inkFaint;
 
   return (
-    <AnimatedPressable
-      accessibilityRole="button"
+    <Pressable
+      accessibilityRole="tab"
       accessibilityState={{ selected: focused }}
+      accessibilityLabel={label}
       onPress={onPress}
       onLongPress={onLongPress}
-      className="flex-1 items-center justify-center"
-      style={[{ minHeight: compact ? 52 : 56 }, animStyle]}>
+      // Kill Android ripple / iOS highlight — selection is shown via indicator only.
+      android_disableSound
+      android_ripple={
+        Platform.OS === 'android' ? { color: 'transparent' } : undefined
+      }
+      unstable_pressDelay={0}
+      hitSlop={{ top: 6, bottom: 6 }}
+      style={styles.pressable}>
       <View
-        className="flex-row items-center justify-center px-5 py-2.5"
-        style={{
-          backgroundColor: focused ? colors.secondaryContainer : 'transparent',
-          borderRadius: 9999,
-          overflow: 'hidden',
-        }}>
-        <Text className="text-base">{focused ? icon.active : icon.inactive}</Text>
-        <Text
-          className="ml-1.5 text-center text-sm font-bold"
-          style={{
-            color: dark
-              ? focused
-                ? colors.onSecondaryContainer
-                : colors.surface
-              : focused
-                ? colors.onSecondaryContainer
-                : colors.inkFaint,
-          }}>
+        style={[
+          styles.inner,
+          {
+            minHeight: compact ? 48 : 50,
+            paddingHorizontal: compact ? 6 : 8,
+          },
+        ]}>
+        <Animated.View
+          style={[
+            styles.indicator,
+            {
+              width: compact ? 48 : 52,
+              height: compact ? 28 : 30,
+              borderRadius: radii.md,
+            },
+            indicatorStyle,
+          ]}>
+          <TabIcon name={name} color={iconColor} size={iconSize} />
+        </Animated.View>
+        <Animated.Text
+          numberOfLines={1}
+          style={[
+            styles.label,
+            {
+              fontSize: compact ? 11 : 12,
+              fontWeight: focused ? '700' : '500',
+            },
+            labelStyle,
+          ]}>
           {label}
-        </Text>
+        </Animated.Text>
       </View>
-    </AnimatedPressable>
+    </Pressable>
   );
 }
 
-export function TabGlyph({
-  name,
-  focused,
-}: {
-  name: TabRouteName;
-  focused: boolean;
-  size?: number;
-  dark?: boolean;
-}) {
-  return (
-    <Text className="text-base">{TAB_ICONS[name][focused ? 'active' : 'inactive']}</Text>
-  );
-}
+const styles = StyleSheet.create({
+  pressable: {
+    flex: 1,
+  },
+  inner: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  indicator: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  label: {
+    lineHeight: 14,
+    textAlign: 'center',
+  },
+});

@@ -7,26 +7,33 @@ import {
   isValidLevel,
 } from "../constants/languages";
 import { getDb } from "../db";
-import { userSettings } from "../db/schema";
+import { MOTIVATIONS, userSettings } from "../db/schema";
 import { authMiddleware, getUserId } from "../middleware/auth";
 import { AppError } from "../middleware/errorHandler";
-import { serializeSettings } from "../services/settings.service";
+import {
+  LLM_CONSENT_VERSION,
+  serializeSettings,
+} from "../services/settings.service";
 
 const patchSchema = z
   .object({
     targetLanguage: z.string().min(2).max(5).optional(),
     nativeLanguage: z.string().min(2).max(5).optional(),
     level: z.enum(CEFR_LEVELS).optional(),
+    motivation: z.enum(MOTIVATIONS).optional(),
     onboardingCompleted: z.boolean().optional(),
     dailyGoalMinutes: z.number().int().min(5).max(120).optional(),
+    acceptLlmConsent: z.literal(true).optional(),
   })
   .refine(
     (d) =>
       d.targetLanguage !== undefined ||
       d.nativeLanguage !== undefined ||
       d.level !== undefined ||
+      d.motivation !== undefined ||
       d.onboardingCompleted !== undefined ||
-      d.dailyGoalMinutes !== undefined,
+      d.dailyGoalMinutes !== undefined ||
+      d.acceptLlmConsent !== undefined,
     { message: "Provide at least one field to update" },
   );
 
@@ -77,10 +84,15 @@ settingsRouter.patch("/", async (req, res, next) => {
     if (body.targetLanguage) updates.targetLanguage = body.targetLanguage;
     if (body.nativeLanguage) updates.nativeLanguage = body.nativeLanguage;
     if (body.level) updates.level = body.level;
+    if (body.motivation) updates.motivation = body.motivation;
     if (body.onboardingCompleted !== undefined) {
       updates.onboardingCompleted = body.onboardingCompleted;
     }
     if (body.dailyGoalMinutes) updates.dailyGoalMinutes = body.dailyGoalMinutes;
+    if (body.acceptLlmConsent) {
+      updates.llmConsentVersion = LLM_CONSENT_VERSION;
+      updates.llmConsentAt = new Date();
+    }
 
     const [updated] = await db
       .update(userSettings)

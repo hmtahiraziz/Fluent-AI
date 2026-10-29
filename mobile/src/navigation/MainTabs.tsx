@@ -12,9 +12,15 @@ export function MainTabs() {
   return (
     <Tab.Navigator
       tabBar={props => <AppTabBar {...props} />}
+      // Keep inactive scenes attached so Android tab switches don't flicker/remount.
+      detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
+        // Mount all tabs once so scroll position and local state survive switches.
+        lazy: false,
+        freezeOnBlur: true,
+        animation: 'none',
       }}>
       <Tab.Screen
         name="Practice"

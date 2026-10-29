@@ -40,12 +40,21 @@ export const FloatingInput = forwardRef<TextInput, FloatingInputProps>(
     const [focused, setFocused] = useState(false);
     const [hidden, setHidden] = useState(Boolean(secureTextEntry));
 
-    const borderColor = error ? colors.danger : focused ? colors.primary : colors.border;
+    const backgroundColor = error
+      ? '#fce8e8'
+      : focused
+        ? colors.surface
+        : colors.surfaceContainerLow;
+    const borderColor = error
+      ? colors.danger
+      : focused
+        ? colors.primary
+        : 'transparent';
 
     return (
       <View className="mb-4">
-        <View className="mb-2 ml-4 mr-4 flex-row items-center justify-between">
-          <Text className="text-sm font-bold text-ink-muted">{label}</Text>
+        <View className="mb-2 ml-1 mr-1 flex-row items-center justify-between px-3">
+          <Text className="text-sm font-semibold text-ink-muted">{label}</Text>
           {labelRight}
         </View>
 
@@ -63,8 +72,12 @@ export const FloatingInput = forwardRef<TextInput, FloatingInputProps>(
             style={[
               styles.input,
               secureTextEntry ? styles.inputWithToggle : null,
-              { borderColor },
-              focused && !error ? styles.inputFocused : null,
+              {
+                backgroundColor,
+                borderColor,
+                borderWidth: focused || error ? 1.5 : 1,
+                opacity: editable === false ? 0.55 : 1,
+              },
               style,
             ]}
             onFocus={e => {
@@ -81,16 +94,19 @@ export const FloatingInput = forwardRef<TextInput, FloatingInputProps>(
               style={styles.toggle}
               onPress={() => setHidden(v => !v)}
               hitSlop={8}
+              accessibilityRole="button"
               accessibilityLabel={hidden ? 'Show password' : 'Hide password'}>
-              <Text className="text-lg">{hidden ? '👁' : '🙈'}</Text>
+              <Text className="text-base font-semibold text-ink-muted">
+                {hidden ? 'Show' : 'Hide'}
+              </Text>
             </Pressable>
           ) : null}
         </View>
 
         {error ? (
-          <Text className="mt-1.5 ml-4 text-sm font-medium text-ink">{error}</Text>
+          <Text className="mt-1.5 px-3 text-sm font-medium text-danger">{error}</Text>
         ) : hint ? (
-          <Text className="mt-1.5 ml-4 text-sm text-ink-muted">{hint}</Text>
+          <Text className="mt-1.5 px-3 text-sm text-ink-muted">{hint}</Text>
         ) : null}
       </View>
     );
@@ -103,12 +119,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   input: {
+    minHeight: 56,
     height: 56,
     width: '100%',
-    borderRadius: 999,
-    borderWidth: 1,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 24,
+    borderRadius: 16,
+    paddingHorizontal: 20,
     fontSize: 16,
     lineHeight: 22,
     color: colors.ink,
@@ -117,27 +132,17 @@ const styles = StyleSheet.create({
       : { paddingTop: 16, paddingBottom: 16 }),
   },
   inputWithToggle: {
-    paddingRight: 52,
-  },
-  inputFocused: {
-    borderWidth: 1,
-    ...(Platform.OS === 'android'
-      ? { elevation: 2 }
-      : {
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-        }),
+    paddingRight: 72,
   },
   toggle: {
     position: 'absolute',
-    right: 16,
+    right: 12,
     top: 0,
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 32,
+    minWidth: 48,
+    paddingHorizontal: 8,
   },
 });
 

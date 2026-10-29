@@ -15,7 +15,7 @@ type PressableScaleProps = PressableProps & {
 
 export function PressableScale({
   children,
-  scale = 0.97,
+  scale = 0.985,
   disabled,
   onPressIn,
   onPressOut,

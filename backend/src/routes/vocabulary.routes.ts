@@ -1,11 +1,22 @@
 import { Router } from "express";
-import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { isValidLanguage } from "../constants/languages";
-import { getDb } from "../db";
-import { vocabularyItems } from "../db/schema";
 import { authMiddleware, getUserId } from "../middleware/auth";
 import { AppError } from "../middleware/errorHandler";
+import { LEARNING_STATES } from "../services/vocabularySrs";
+import { VOCAB_SORTS } from "../services/vocabularyCursor";
+import {
+  VocabHttpError,
+  createVocabularyItem,
+  getReviewQueue,
+  getVocabularyById,
+  getVocabularyStats,
+  listVocabulary,
+  patchVocabularyItem,
+  restoreVocabularyItem,
+  softDeleteVocabularyItem,
+  submitVocabularyReview,
+} from "../services/vocabulary.service";
+import { VOCAB_RATINGS } from "../services/vocabularySrs";
 
 const createSchema = z.object({
   phrase: z.string().min(1).max(500),
@@ -15,35 +26,88 @@ const createSchema = z.object({
   sourceMessageId: z.string().uuid().optional(),
 });
 
+const listQuerySchema = z.object({
+  language: z.string().min(2).max(5).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  state: z.enum(LEARNING_STATES).optional(),
+  sort: z.enum(VOCAB_SORTS).optional(),
+  q: z.string().max(200).optional(),
+  cursor: z.string().max(2000).optional(),
+});
+
+const patchSchema = z.object({
+  translation: z.string().max(500).nullable().optional(),
+  note: z.string().max(2000).nullable().optional(),
+  pronunciation: z.string().max(500).nullable().optional(),
+  exampleSentence: z.string().max(2000).nullable().optional(),
+});
+
+const reviewSchema = z.object({
+  rating: z.enum(VOCAB_RATINGS),
+  clientRequestId: z.string().uuid(),
+});
+
+const queueQuerySchema = z.object({
+  language: z.string().min(2).max(5).optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+
 export const vocabularyRouter = Router();
 
 vocabularyRouter.use(authMiddleware);
 
-vocabularyRouter.get("/", async (req, res, next) => {
+vocabularyRouter.get("/stats", async (req, res, next) => {
   try {
     const userId = getUserId(req);
     const language =
       typeof req.query.language === "string" ? req.query.language : undefined;
-
-    if (language && !isValidLanguage(language)) {
-      throw new AppError(400, "Unsupported language filter");
+    const createdSinceRaw =
+      typeof req.query.createdSince === "string"
+        ? req.query.createdSince
+        : undefined;
+    let createdSince: Date | undefined;
+    if (createdSinceRaw) {
+      createdSince = new Date(createdSinceRaw);
+      if (Number.isNaN(createdSince.getTime())) {
+        throw new AppError(400, "Invalid createdSince datetime");
+      }
     }
+    const stats = await getVocabularyStats(userId, language, createdSince);
+    res.json(stats);
+  } catch (e) {
+    next(e);
+  }
+});
 
-    const db = getDb();
-    const rows = await db
-      .select()
-      .from(vocabularyItems)
-      .where(
-        language
-          ? and(
-              eq(vocabularyItems.userId, userId),
-              eq(vocabularyItems.language, language),
-            )
-          : eq(vocabularyItems.userId, userId),
-      )
-      .orderBy(desc(vocabularyItems.createdAt));
+vocabularyRouter.get("/review-queue", async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    const query = queueQuerySchema.parse(req.query);
+    const result = await getReviewQueue({
+      userId,
+      language: query.language,
+      limit: query.limit ?? 20,
+    });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
 
-    res.json({ items: rows });
+vocabularyRouter.get("/", async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    const query = listQuerySchema.parse(req.query);
+    const result = await listVocabulary({
+      userId,
+      language: query.language,
+      limit: query.limit ?? 100,
+      state: query.state,
+      sort: query.sort ?? "created_at",
+      q: query.q,
+      cursor: query.cursor,
+    });
+    res.json(result);
   } catch (e) {
     next(e);
   }
@@ -53,37 +117,34 @@ vocabularyRouter.post("/", async (req, res, next) => {
   try {
     const userId = getUserId(req);
     const body = createSchema.parse(req.body);
-    const db = getDb();
+    const result = await createVocabularyItem(userId, body);
+    res.status(result.created ? 201 : 200).json(result);
+  } catch (e) {
+    next(e);
+  }
+});
 
-    let language = body.language;
-    if (!language) {
-      const { userSettings } = await import("../db/schema");
-      const [settings] = await db
-        .select()
-        .from(userSettings)
-        .where(eq(userSettings.userId, userId))
-        .limit(1);
-      language = settings?.targetLanguage ?? "es";
+vocabularyRouter.get("/:id", async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    const id = z.string().uuid().parse(req.params.id);
+    const result = await getVocabularyById(userId, id);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+vocabularyRouter.patch("/:id", async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    const id = z.string().uuid().parse(req.params.id);
+    const body = patchSchema.parse(req.body);
+    if (Object.keys(body).length === 0) {
+      throw new AppError(400, "No fields to update");
     }
-
-    if (!isValidLanguage(language)) {
-      throw new AppError(400, "Unsupported language");
-    }
-
-    const [item] = await db
-      .insert(vocabularyItems)
-      .values({
-        userId,
-        language,
-        phrase: body.phrase.trim(),
-        translation: body.translation?.trim() || null,
-        note: body.note?.trim() || null,
-        sourceMessageId: body.sourceMessageId ?? null,
-      })
-      .returning();
-
-    if (!item) throw new AppError(500, "Failed to save vocabulary");
-    res.status(201).json({ item });
+    const result = await patchVocabularyItem(userId, id, body);
+    res.json(result);
   } catch (e) {
     next(e);
   }
@@ -93,21 +154,41 @@ vocabularyRouter.delete("/:id", async (req, res, next) => {
   try {
     const userId = getUserId(req);
     const id = z.string().uuid().parse(req.params.id);
-    const db = getDb();
-
-    const [deleted] = await db
-      .delete(vocabularyItems)
-      .where(
-        and(eq(vocabularyItems.id, id), eq(vocabularyItems.userId, userId)),
-      )
-      .returning({ id: vocabularyItems.id });
-
-    if (!deleted) {
-      throw new AppError(404, "Vocabulary item not found");
-    }
-
+    await softDeleteVocabularyItem(userId, id);
     res.status(204).send();
   } catch (e) {
+    next(e);
+  }
+});
+
+vocabularyRouter.post("/:id/restore", async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    const id = z.string().uuid().parse(req.params.id);
+    const result = await restoreVocabularyItem(userId, id);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+vocabularyRouter.post("/:id/review", async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    const id = z.string().uuid().parse(req.params.id);
+    const body = reviewSchema.parse(req.body);
+    const result = await submitVocabularyReview({
+      userId,
+      itemId: id,
+      rating: body.rating,
+      clientRequestId: body.clientRequestId,
+    });
+    res.json(result);
+  } catch (e) {
+    if (e instanceof VocabHttpError) {
+      res.status(e.statusCode).json(e.body);
+      return;
+    }
     next(e);
   }
 });

@@ -3,7 +3,10 @@ export type AuthStackParamList = {
   CreateAccount: undefined;
   SignIn: { resetSuccess?: boolean } | undefined;
   ForgotPassword: undefined;
-  ResetPassword: { email: string; resetToken: string };
+  VerifyResetOtp: { email: string };
+  ResetPassword:
+    | { email?: string; resetToken?: string; token?: string }
+    | undefined;
 };
 
 export type OnboardingStackParamList = {
@@ -32,6 +35,9 @@ export type RootStackParamList = {
     language?: string;
     level?: string;
   };
+  VocabularyDetail: { id: string };
+  VocabularyReview: { language?: string } | undefined;
+  PrivacyPolicy: undefined;
 };
 
 export type PendingChat = {

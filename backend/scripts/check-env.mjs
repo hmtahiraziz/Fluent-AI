@@ -18,8 +18,13 @@ for (const key of required) {
 }
 
 const jwt = process.env.JWT_SECRET;
-if (jwt.length < 16) {
-  console.log("INVALID: JWT_SECRET must be at least 16 characters");
+if (jwt.length < 32) {
+  console.log("INVALID: JWT_SECRET must be at least 32 characters");
+  process.exit(1);
+}
+
+if (process.env.NODE_ENV === "production" && !process.env.CORS_ORIGIN?.trim()) {
+  console.log("INVALID: CORS_ORIGIN is required in production");
   process.exit(1);
 }
 
@@ -29,11 +34,7 @@ console.log(`PORT: ${process.env.PORT}`);
 console.log(`DATABASE_URL: set (${process.env.DATABASE_URL.length} chars)`);
 console.log(`JWT_SECRET: set (${jwt.length} chars)`);
 console.log(`OPENAI_MODEL: ${process.env.OPENAI_MODEL}`);
-console.log(
-  `OPENAI_API_KEY: ${key.slice(0, 12)}...${key.slice(-4)} (${key.length} chars)`,
-);
-console.log(`Key has whitespace: ${/\s/.test(key)}`);
-console.log(`Key wrapped in quotes: ${/^["']|["']$/.test(key)}`);
+console.log(`OPENAI_API_KEY: set (${key.length} chars)`);
 
 const res = await fetch("https://api.openai.com/v1/models", {
   headers: { Authorization: `Bearer ${key}` },
@@ -42,10 +43,6 @@ const res = await fetch("https://api.openai.com/v1/models", {
 if (res.ok) {
   console.log("OpenAI API key: VALID");
 } else {
-  const body = await res.text();
   console.log(`OpenAI API key: INVALID (HTTP ${res.status})`);
-  if (body.includes("invalid_api_key")) {
-    console.log("Reason: invalid_api_key — create a new key at platform.openai.com");
-  }
   process.exit(1);
 }
