@@ -4,6 +4,8 @@ import { getEnv } from "../config/env";
 
 export type AuthRequest = Request & { userId: string };
 
+const JWT_ALGORITHMS: jwt.Algorithm[] = ["HS256"];
+
 export function getUserId(req: Request): string {
   return (req as AuthRequest).userId;
 }
@@ -21,7 +23,13 @@ export function authMiddleware(
 
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, getEnv().JWT_SECRET) as { sub: string };
+    const payload = jwt.verify(token, getEnv().JWT_SECRET, {
+      algorithms: JWT_ALGORITHMS,
+    }) as { sub: string };
+    if (!payload.sub) {
+      res.status(401).json({ error: "Invalid or expired token" });
+      return;
+    }
     (req as AuthRequest).userId = payload.sub;
     next();
   } catch {
@@ -33,6 +41,7 @@ export function signAccessToken(userId: string): string {
   const { JWT_SECRET, JWT_EXPIRES_IN } = getEnv();
   const options: SignOptions = {
     expiresIn: JWT_EXPIRES_IN as SignOptions["expiresIn"],
+    algorithm: "HS256",
   };
   return jwt.sign({ sub: userId }, JWT_SECRET as Secret, options);
 }

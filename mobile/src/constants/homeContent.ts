@@ -1,26 +1,20 @@
-export const HOME_TOPIC_CHIPS = [
-  { label: 'Grammar', prompt: "Let's practice grammar and sentence structure." },
-  { label: 'Culture', prompt: "Let's explore cultural expressions and customs." },
-  { label: 'Business', prompt: 'Help me practice professional business conversations.' },
-  { label: 'Travel', prompt: "Let's practice travel scenarios and directions." },
+export const LEARNING_TIPS = [
+  'Try practicing right before bed to boost memory retention.',
+  'Say new phrases out loud — speaking helps lock in vocabulary.',
+  'Review three saved words before each chat session.',
+  'Short daily practice beats long weekend cramming.',
+  'When corrected, rewrite the sentence once in your own words.',
+  'Ask the tutor to slow down or simplify if a reply feels too hard.',
 ] as const;
 
-export const FOR_YOU_ITEMS = [
-  {
-    id: 'parisian-etiquette',
-    title: 'Parisian Etiquette',
-    meta: '5 min • Culture',
-    emoji: '🇫🇷',
-    prompt: "Teach me Parisian café etiquette and polite phrases.",
-  },
-  {
-    id: 'email-mastery',
-    title: 'Email Mastery',
-    meta: '8 min • Business',
-    emoji: '✉️',
-    prompt: 'Help me write professional emails in my target language.',
-  },
-] as const;
+/** Deterministic tip for a local calendar day (YYYY-MM-DD). */
+export function learningTipForDay(dayKey: string): string {
+  let h = 0;
+  for (let i = 0; i < dayKey.length; i++) {
+    h = (h * 31 + dayKey.charCodeAt(i)) >>> 0;
+  }
+  return LEARNING_TIPS[h % LEARNING_TIPS.length]!;
+}
 
-export const LEARNING_TIP =
-  'Try practicing right before bed to boost memory retention.';
+/** @deprecated use LEARNING_TIPS / learningTipForDay */
+export const LEARNING_TIP = LEARNING_TIPS[0]!;

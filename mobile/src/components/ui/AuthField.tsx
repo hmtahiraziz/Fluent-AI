@@ -36,9 +36,10 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
     <View className="mb-4">
       <Text className="mb-2 text-sm font-semibold text-ink-muted">{label}</Text>
       <View
-        className={`min-h-[52px] flex-row items-center rounded-2xl border bg-surface px-4 ${
-          error ? 'border-coral' : 'border-border'
-        }`}>
+        className="min-h-[52px] flex-row items-center rounded-2xl px-4"
+        style={{
+          backgroundColor: error ? '#fce8e8' : colors.surfaceContainerLow,
+        }}>
         <TextInput
           ref={ref}
           placeholderTextColor={colors.inkFaint}

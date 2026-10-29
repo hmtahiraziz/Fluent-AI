@@ -4,12 +4,29 @@ import { neon, neonConfig } from "@neondatabase/serverless";
 import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 
-/**
- * On this Windows host, undici's fetch to Neon times out while curl/https works.
- * Route Neon HTTP through Node's https module instead.
- */
-neonConfig.fetchFunction = ((input: string | URL | Request, init?: RequestInit) => {
-  const target = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+function isTransientNetworkError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as NodeJS.ErrnoException).code;
+  return (
+    code === "ENOTFOUND" ||
+    code === "EAI_AGAIN" ||
+    code === "ECONNRESET" ||
+    code === "ETIMEDOUT" ||
+    code === "ECONNREFUSED" ||
+    code === "UND_ERR_CONNECT_TIMEOUT"
+  );
+}
+
+function neonHttpsFetch(
+  input: string | URL | Request,
+  init?: RequestInit,
+): Promise<Response> {
+  const target =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input.url;
   const method = init?.method ?? "GET";
   const headers = new Headers(init?.headers);
   const body = typeof init?.body === "string" ? init.body : undefined;
@@ -25,6 +42,8 @@ neonConfig.fetchFunction = ((input: string | URL | Request, init?: RequestInit) 
         method,
         headers: Object.fromEntries(headers.entries()),
         timeout: 60_000,
+        // Prefer IPv4 when dual-stack DNS flaps (common ENOTFOUND/EAI_AGAIN on Windows).
+        family: 4,
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -48,6 +67,27 @@ neonConfig.fetchFunction = ((input: string | URL | Request, init?: RequestInit) 
     if (body) req.write(body);
     req.end();
   });
+}
+
+/**
+ * On this Windows host, undici's fetch to Neon times out while curl/https works.
+ * Route Neon HTTP through Node's https module instead, with short retries for DNS blips.
+ */
+neonConfig.fetchFunction = (async (input: string | URL | Request, init?: RequestInit) => {
+  const maxAttempts = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await neonHttpsFetch(input, init);
+    } catch (err) {
+      lastError = err;
+      if (!isTransientNetworkError(err) || attempt === maxAttempts) {
+        throw err;
+      }
+      await new Promise((r) => setTimeout(r, 200 * attempt));
+    }
+  }
+  throw lastError;
 }) as typeof fetch;
 
 export type Database = NeonHttpDatabase<typeof schema>;

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { PressableScale } from './PressableScale';
-import { softShadow } from '../../theme/glass';
 import { colors } from '../../theme/tokens';
 
 type MotivationOptionCardProps = {
@@ -30,25 +29,45 @@ export function MotivationOptionCard({
       <View
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        className={`rounded-[24px] border-2 p-6 ${isHorizontal ? 'flex-row items-center gap-4' : ''}`}
-        style={[
-          softShadow(),
-          {
-            backgroundColor: colors.surface,
-            borderColor: selected ? colors.primaryContainer : 'transparent',
-            minHeight: isHorizontal ? 88 : 160,
-            justifyContent: isHorizontal ? 'center' : 'space-between',
-          },
-        ]}>
+        className={`rounded-[20px] p-4 ${isHorizontal ? 'flex-row items-center gap-3.5' : ''}`}
+        style={{
+          backgroundColor: selected ? colors.primarySoft : colors.surfaceContainer,
+          minHeight: isHorizontal ? 80 : undefined,
+        }}>
         <View
-          className={`items-center justify-center rounded-2xl ${isHorizontal ? 'h-12 w-12' : 'mb-4 h-12 w-12'}`}
-          style={{ backgroundColor: iconBackground }}>
-          <Text className="text-2xl">{icon}</Text>
+          className={`items-center justify-center rounded-2xl ${isHorizontal ? 'h-11 w-11' : 'mb-3 h-11 w-11'}`}
+          style={{
+            backgroundColor: selected ? colors.surface : iconBackground,
+          }}>
+          <Text className="text-xl">{icon}</Text>
         </View>
-        <View className={isHorizontal ? 'flex-1' : undefined}>
-          <Text className="text-xl font-bold text-ink">{title}</Text>
-          <Text className="mt-1 text-base leading-6 text-ink-muted">{description}</Text>
+        <View className={isHorizontal ? 'min-w-0 flex-1' : undefined}>
+          <Text className="text-base font-semibold text-ink">{title}</Text>
+          <Text className="mt-1 text-sm leading-5 text-ink-muted">{description}</Text>
         </View>
+        {isHorizontal ? (
+          <View
+            className="h-6 w-6 items-center justify-center rounded-full"
+            style={{
+              backgroundColor: selected
+                ? colors.secondaryContainer
+                : colors.surfaceContainerHighest,
+            }}>
+            {selected ? (
+              <Text className="text-xs font-bold" style={{ color: colors.onSecondaryContainer }}>
+                ✓
+              </Text>
+            ) : null}
+          </View>
+        ) : selected ? (
+          <View
+            className="absolute right-4 top-4 h-6 w-6 items-center justify-center rounded-full"
+            style={{ backgroundColor: colors.secondaryContainer }}>
+            <Text className="text-xs font-bold" style={{ color: colors.onSecondaryContainer }}>
+              ✓
+            </Text>
+          </View>
+        ) : null}
       </View>
     </PressableScale>
   );

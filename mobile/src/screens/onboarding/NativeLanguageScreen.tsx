@@ -39,11 +39,14 @@ export function NativeLanguageScreen({ navigation }: Props) {
   return (
     <OnboardingShell
       step={1}
-      title="What is your native language?"
+      titlePrimary="What is your "
+      titleAccent="native language?"
       subtitle="We'll use this to personalize your learning path and explain complex concepts."
-      showBack
+      showBack={false}
+      footerHint="You can change this later in Settings"
+      footerDisabled={!selected}
       footerExtra={
-        <InsightCard title="AI Tip" className="mt-8">
+        <InsightCard title="AI Tip">
           Our AI models work best when you choose your most fluent language. This ensures
           translated nuances remain accurate.
         </InsightCard>
@@ -52,7 +55,7 @@ export function NativeLanguageScreen({ navigation }: Props) {
         updateDraft({ nativeLanguage: selected, step: 2 });
         navigation.navigate('TargetLanguage');
       }}>
-      <ResponsiveGrid compactCols={1} gap={16}>
+      <ResponsiveGrid compactCols={1} gap={12}>
         {featured.map(lang => (
           <LanguageOptionCard
             key={lang.code}

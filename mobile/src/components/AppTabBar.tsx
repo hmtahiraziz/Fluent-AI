@@ -1,45 +1,57 @@
-import React from 'react';
-import { View } from 'react-native';
+import React, { memo } from 'react';
+import { StyleSheet, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive } from '../hooks/useResponsive';
-import { navbarShadow } from '../theme/glass';
 import { colors } from '../theme/tokens';
 import {
+  TAB_BAR_RADIUS,
   TAB_ITEMS,
-  tabBarHeight,
+  resolveTabBarBottomInset,
+  tabBarContentGap,
+  tabBarContentHeight,
+  tabBarIconSize,
   tabBarMaxWidth,
+  tabBarOccupiedHeight,
+  tabBarSideInset,
+  tabBarTopPad,
   type TabRouteName,
 } from '../theme/tabBar';
 import { TabBarItem } from './TabBarItem';
 
-export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+function AppTabBarComponent({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { breakpoint, isTablet, width } = useResponsive();
-  const barHeight = tabBarHeight(breakpoint, 0);
-  const maxBarWidth = tabBarMaxWidth(breakpoint) ?? width - 32;
-  const iconSize = isTablet ? 24 : 22;
-  const horizontalPad = Math.max((width - maxBarWidth) / 2, 16);
+  const { breakpoint, width } = useResponsive();
+  const contentHeight = tabBarContentHeight(breakpoint);
+  const topPad = tabBarTopPad(breakpoint);
+  const sideInset = tabBarSideInset(breakpoint);
+  const bottomPad = resolveTabBarBottomInset(insets.bottom);
+  const maxBarWidth = tabBarMaxWidth(breakpoint) ?? width;
+  const iconSize = tabBarIconSize(breakpoint);
 
   return (
     <View
       pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        paddingHorizontal: horizontalPad,
-        paddingBottom: Math.max(insets.bottom, 12),
-      }}>
+      style={[
+        styles.anchor,
+        {
+          // Fill through the safe-area region so there is no canvas gap
+          // between the tab chrome and the system navigation bar.
+          paddingTop: topPad,
+          paddingBottom: bottomPad,
+          backgroundColor: colors.surface,
+          borderTopLeftRadius: TAB_BAR_RADIUS,
+          borderTopRightRadius: TAB_BAR_RADIUS,
+          borderTopColor: colors.borderLight,
+        },
+      ]}>
       <View
-        className="mx-auto w-full flex-row items-center rounded-full px-2"
         style={[
-          navbarShadow(),
+          styles.row,
           {
-            height: barHeight,
+            height: contentHeight,
             maxWidth: maxBarWidth,
-            backgroundColor: colors.navDark,
+            paddingHorizontal: sideInset,
           },
         ]}>
         {state.routes.map((route, index) => {
@@ -77,7 +89,6 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
               onLongPress={onLongPress}
               compact={breakpoint === 'compact'}
               iconSize={iconSize}
-              dark
             />
           );
         })}
@@ -86,8 +97,31 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   );
 }
 
+export const AppTabBar = memo(AppTabBarComponent);
+
+/** Bottom padding screens should reserve so content clears the absolute tab bar. */
 export function useTabBarInset(): number {
   const insets = useSafeAreaInsets();
   const { breakpoint } = useResponsive();
-  return tabBarHeight(breakpoint, 0) + Math.max(insets.bottom, 12) + 16;
+  return (
+    tabBarOccupiedHeight(breakpoint, insets.bottom) + tabBarContentGap(breakpoint)
+  );
 }
+
+const styles = StyleSheet.create({
+  anchor: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    overflow: 'hidden',
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  row: {
+    width: '100%',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+});

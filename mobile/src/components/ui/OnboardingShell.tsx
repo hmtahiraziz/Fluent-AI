@@ -1,19 +1,27 @@
 import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+  KeyboardAwareScrollView,
+  KeyboardStickyView,
+} from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ONBOARDING_STEPS } from '../../config/constants';
+import { useOnboarding } from '../../context/OnboardingContext';
+import type { OnboardingStackParamList } from '../../navigation/types';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SplitHeadline } from './SplitHeadline';
 import { OnboardingFooter } from './OnboardingFooter';
-import { colors } from '../../theme/tokens';
+import { colors, spacing } from '../../theme/tokens';
+
+const PREVIOUS_STEP_ROUTE: Record<number, keyof OnboardingStackParamList> = {
+  2: 'NativeLanguage',
+  3: 'TargetLanguage',
+  4: 'Motivation',
+  5: 'Level',
+  6: 'DailyGoal',
+};
 
 type OnboardingShellProps = {
   step: number;
@@ -29,12 +37,16 @@ type OnboardingShellProps = {
   footerShowArrow?: boolean;
   footerVariant?: 'default' | 'pill' | 'dark';
   footerPlacement?: 'sticky' | 'scroll';
+  /** @deprecated Progress is always shown in the header */
   inlineHeaderProgress?: boolean;
   centerTitle?: boolean;
   onContinue: () => void;
   showBack?: boolean;
+  /** @deprecated Step label is always centered */
   centerStepLabel?: boolean;
   footerExtra?: React.ReactNode;
+  secondaryLabel?: string;
+  onSecondaryPress?: () => void;
 };
 
 export function OnboardingShell({
@@ -49,22 +61,32 @@ export function OnboardingShell({
   footerLoading,
   footerDisabled,
   footerShowArrow,
-  footerVariant = 'default',
+  footerVariant = 'pill',
   footerPlacement = 'sticky',
-  inlineHeaderProgress = false,
   centerTitle = false,
   onContinue,
   showBack,
-  centerStepLabel = false,
   footerExtra,
+  secondaryLabel,
+  onSecondaryPress,
 }: OnboardingShellProps) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
-  const { horizontalPadding, contentMaxWidth, isTablet } = useResponsive();
-  const progress = (step / ONBOARDING_STEPS) * 100;
-  const canGoBack = navigation.canGoBack();
-  const backVisible = showBack ?? canGoBack;
+  const navigation =
+    useNavigation<NativeStackNavigationProp<OnboardingStackParamList>>();
+  const { updateDraft } = useOnboarding();
+  const { horizontalPadding, contentMaxWidth, isTablet, isCompact } = useResponsive();
+  const progress = Math.min(100, Math.max(0, (step / ONBOARDING_STEPS) * 100));
+  const previousRoute = PREVIOUS_STEP_ROUTE[step];
+  const backVisible = showBack ?? step > 1;
   const scrollFooter = footerPlacement === 'scroll';
+  const titleAlign = centerTitle ? 'center' : 'left';
+  const sideSlot = isCompact ? 64 : 76;
+
+  function handleBack() {
+    if (!previousRoute) return;
+    updateDraft({ step: step - 1 });
+    navigation.navigate(previousRoute);
+  }
 
   const footer = (
     <OnboardingFooter
@@ -75,132 +97,122 @@ export function OnboardingShell({
       showArrow={footerShowArrow}
       variant={footerVariant}
       onPress={onContinue}
+      secondaryLabel={secondaryLabel}
+      onSecondaryPress={onSecondaryPress}
     />
   );
 
   return (
-    <View className="flex-1 bg-canvas">
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View
-          className="flex-row items-center bg-canvas"
-          style={{
-            paddingTop: insets.top + 8,
-            paddingHorizontal: horizontalPadding,
-            paddingBottom: 8,
-            minHeight: 64,
-          }}>
-          {backVisible ? (
-            <Pressable
-              onPress={() => navigation.goBack()}
-              className="h-10 w-10 items-center justify-center rounded-full"
-              accessibilityLabel="Go back"
-              style={({ pressed }) => ({
-                backgroundColor: pressed ? colors.surfaceContainerHighest : 'transparent',
-              })}>
-              <Text className="text-2xl text-brand">←</Text>
-            </Pressable>
-          ) : (
-            <View className="h-10 w-10" />
-          )}
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+      <View
+        style={{
+          backgroundColor: colors.canvas,
+          paddingTop: Math.max(insets.top, 12) + 8,
+          paddingHorizontal: horizontalPadding,
+          paddingBottom: spacing.md,
+          flexShrink: 0,
+        }}>
+        <View className="flex-row items-center" style={{ minHeight: 44 }}>
+          <View style={{ width: sideSlot, alignItems: 'flex-start' }}>
+            {backVisible ? (
+              <Pressable
+                onPress={handleBack}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+                className="h-10 flex-row items-center justify-center rounded-full px-3"
+                style={({ pressed }) => ({
+                  backgroundColor: pressed
+                    ? colors.surfaceContainerHighest
+                    : colors.surfaceContainer,
+                })}>
+                <Text className="text-sm font-bold text-brand">← Back</Text>
+              </Pressable>
+            ) : null}
+          </View>
 
-          {inlineHeaderProgress ? (
-            <View className="flex-1 items-center">
-              <Text className="text-sm font-bold text-brand">
-                Step {step} of {ONBOARDING_STEPS}
-              </Text>
-              <View
-                className="mt-2 h-1 w-32 overflow-hidden rounded-full"
-                style={{ backgroundColor: colors.surfaceContainerHighest }}>
-                <View
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${progress}%`,
-                    backgroundColor: colors.secondaryContainer,
-                  }}
-                />
-              </View>
-            </View>
-          ) : centerStepLabel ? (
-            <Text className="flex-1 text-center text-sm font-bold text-brand">
+          <View className="flex-1 items-center px-1">
+            <Text className="text-sm font-semibold text-ink-muted" numberOfLines={1}>
               Step {step} of {ONBOARDING_STEPS}
             </Text>
-          ) : (
-            <Text className="ml-4 text-sm font-bold text-brand">
-              Step {step} of {ONBOARDING_STEPS}
-            </Text>
-          )}
+          </View>
 
-          {inlineHeaderProgress || centerStepLabel ? <View className="h-10 w-10" /> : null}
+          <View style={{ width: sideSlot }} />
         </View>
 
-        {!inlineHeaderProgress ? (
+        <View
+          className="mt-3 h-1.5 overflow-hidden rounded-full"
+          style={{ backgroundColor: colors.surfaceContainerHighest }}>
           <View
-            className="mt-2 h-1.5 overflow-hidden rounded-full"
+            className="h-full rounded-full"
             style={{
-              marginHorizontal: horizontalPadding,
-              backgroundColor: colors.surfaceContainerHighest,
-            }}>
-            <View
-              className="h-full rounded-full"
-              style={{
-                width: `${progress}%`,
-                backgroundColor: colors.secondaryContainer,
-              }}
+              width: `${progress}%`,
+              backgroundColor: colors.secondaryContainer,
+            }}
+          />
+        </View>
+      </View>
+
+      <KeyboardAwareScrollView
+        style={{ flex: 1 }}
+        bottomOffset={scrollFooter ? 24 : 12}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: horizontalPadding,
+          paddingTop: isCompact ? spacing.md : spacing.lg,
+          paddingBottom: scrollFooter ? spacing.sm : spacing.md,
+          maxWidth: contentMaxWidth,
+          alignSelf: 'center',
+          width: '100%',
+        }}>
+        <View className={titleAlign === 'center' ? 'items-center' : undefined}>
+          {title ? (
+            <Text
+              className={`font-extrabold text-ink ${
+                titleAlign === 'center' ? 'text-center' : ''
+              } ${isTablet ? 'text-[32px] leading-10' : isCompact ? 'text-[24px] leading-8' : 'text-[28px] leading-9'}`}>
+              {title}
+            </Text>
+          ) : (
+            <SplitHeadline
+              primary={titlePrimary ?? ''}
+              accent={titleAccent ?? ''}
+              size={isCompact ? 'lg' : 'xl'}
+              align={titleAlign}
             />
-          </View>
-        ) : null}
-
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{
-            paddingHorizontal: horizontalPadding,
-            paddingTop: 32,
-            paddingBottom: scrollFooter ? Math.max(insets.bottom, 24) : 160,
-            maxWidth: contentMaxWidth,
-            alignSelf: 'center',
-            width: '100%',
-          }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <View className={centerTitle ? 'items-center' : undefined}>
-            {title ? (
-              <Text
-                className={`font-bold text-ink ${centerTitle ? 'text-center' : ''} ${isTablet ? 'text-[32px] leading-10' : 'text-[28px] leading-9'}`}>
-                {title}
-              </Text>
-            ) : (
-              <View className={centerTitle ? 'items-center' : undefined}>
-                <SplitHeadline
-                  primary={titlePrimary ?? ''}
-                  accent={titleAccent ?? ''}
-                  size="xl"
-                />
-              </View>
-            )}
-            {subtitle ? (
-              <Text
-                className={`mb-8 mt-2 text-base leading-6 text-ink-muted ${centerTitle ? 'max-w-[280px] text-center' : ''}`}>
-                {subtitle}
-              </Text>
-            ) : (
-              <View className="mb-8" />
-            )}
-          </View>
-
-          {children}
-          {footerExtra}
-
-          {scrollFooter ? (
-            <View className="-mx-0 mt-8">{footer}</View>
+          )}
+          {subtitle ? (
+            <Text
+              className={`mt-3 text-base leading-6 text-ink-muted ${
+                titleAlign === 'center' ? 'max-w-[320px] text-center' : ''
+              }`}>
+              {subtitle}
+            </Text>
           ) : null}
-        </ScrollView>
+        </View>
 
-        {!scrollFooter ? (
-          <View className="absolute bottom-0 left-0 right-0 bg-canvas">{footer}</View>
-        ) : null}
-      </KeyboardAvoidingView>
+        <View className="mt-7">{children}</View>
+
+        {footerExtra ? <View className="mt-6">{footerExtra}</View> : null}
+
+        {scrollFooter ? <View className="mt-6">{footer}</View> : null}
+      </KeyboardAwareScrollView>
+
+      {!scrollFooter ? (
+        <KeyboardStickyView
+          offset={{ closed: 0, opened: 0 }}
+          style={{
+            flexShrink: 0,
+            backgroundColor: colors.canvas,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: colors.borderLight,
+          }}>
+          {footer}
+        </KeyboardStickyView>
+      ) : null}
     </View>
   );
 }

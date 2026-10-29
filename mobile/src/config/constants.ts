@@ -148,10 +148,31 @@ export function isFeaturedLanguage(code: string, featuredCodes: readonly string[
 
 const DEV_ANDROID = 'http://127.0.0.1:3000';
 const DEV_IOS = 'http://localhost:3000';
+/** Override in CI / release builds with API_URL. Must be HTTPS. */
+const PRODUCTION_API_URL = 'https://api.fluentai.app';
+
+/** Public legal pages (same host as APP_PUBLIC_URL / API docs site when configured). */
+export const PRIVACY_POLICY_URL = 'https://api.fluentai.app/public/privacy.html';
+export const ACCOUNT_DELETION_URL =
+  'https://api.fluentai.app/public/account-deletion.html';
 
 export function getDefaultApiBaseUrl(): string {
+  // Metro / Babel may inject process.env; avoid Node typings in RN tsconfig.
+  const envApiUrl = (
+    globalThis as { process?: { env?: Record<string, string | undefined> } }
+  ).process?.env?.API_URL;
+  // Collapse accidental spaces (e.g. `http:// 192.168...`) from .env edits.
+  const fromEnv = envApiUrl?.trim().replace(/\s+/g, '').replace(/\/$/, '') ?? '';
+
+  if (fromEnv) {
+    if (!__DEV__ && !fromEnv.startsWith('https://')) {
+      throw new Error('Release API_URL must use HTTPS');
+    }
+    return fromEnv;
+  }
+
   if (!__DEV__) {
-    return 'https://api.example.com';
+    return PRODUCTION_API_URL;
   }
   return Platform.OS === 'android' ? DEV_ANDROID : DEV_IOS;
 }

@@ -1,35 +1,21 @@
-import { useEffect, useState } from 'react';
-import { Dimensions, Keyboard, Platform, type KeyboardEvent } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { useKeyboardState } from 'react-native-keyboard-controller';
 
-function resolveKeyboardHeight(event: KeyboardEvent): number {
-  const windowHeight = Dimensions.get('window').height;
-  const fromScreenY = windowHeight - event.endCoordinates.screenY;
-  const reported = event.endCoordinates.height;
-
-  // Android often under-reports height; screenY is more reliable.
-  return Math.max(fromScreenY, reported, 0);
-}
-
+/**
+ * Cross-platform keyboard height powered by react-native-keyboard-controller.
+ * Returns 0 when the keyboard is hidden.
+ */
 export function useKeyboardInset(onShow?: () => void) {
-  const [height, setHeight] = useState(0);
+  const height = useKeyboardState(state => (state.isVisible ? state.height : 0));
+  const isVisible = useKeyboardState(state => state.isVisible);
+  const onShowRef = useRef(onShow);
+  onShowRef.current = onShow;
 
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, event => {
-      setHeight(resolveKeyboardHeight(event));
-      onShow?.();
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setHeight(0);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [onShow]);
+    if (isVisible) {
+      onShowRef.current?.();
+    }
+  }, [isVisible]);
 
   return height;
 }
