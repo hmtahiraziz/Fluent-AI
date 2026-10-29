@@ -1,7 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { PressableScale } from './PressableScale';
-import { softShadow } from '../../theme/glass';
 import { colors } from '../../theme/tokens';
 
 type DailyGoalOptionCardProps = {
@@ -18,7 +17,7 @@ export function DailyGoalOptionCard({
   minutes,
   icon,
   selected = false,
-  embedded = false,
+  embedded: _embedded = false,
   onPress,
 }: DailyGoalOptionCardProps) {
   return (
@@ -26,35 +25,35 @@ export function DailyGoalOptionCard({
       <View
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        className={`flex-row items-center justify-between rounded-[24px] p-4 ${embedded ? 'border' : 'border-2'}`}
-        style={[
-          embedded ? undefined : softShadow(),
-          {
-            backgroundColor: selected ? colors.primarySoft : colors.surface,
-            borderColor: selected ? colors.secondary : embedded ? colors.borderLight : 'transparent',
-            borderWidth: selected ? (embedded ? 1.5 : 2) : embedded ? 1 : 2,
-          },
-        ]}>
-        <View className="flex-row items-center gap-4">
+        className="flex-row items-center justify-between rounded-[20px] p-4"
+        style={{
+          backgroundColor: selected ? colors.primarySoft : colors.surfaceContainer,
+        }}>
+        <View className="flex-row items-center gap-3.5">
           <View
-            className="h-12 w-12 items-center justify-center rounded-full"
+            className="h-11 w-11 items-center justify-center rounded-full"
             style={{
-              backgroundColor: selected ? colors.secondaryFixedDim : colors.surfaceContainer,
+              backgroundColor: selected ? colors.surface : colors.surfaceContainerHighest,
             }}>
-            <Text className="text-2xl">{icon}</Text>
+            <Text className="text-xl">{icon}</Text>
           </View>
           <View>
-            <Text className="text-sm font-bold text-ink">{label}</Text>
-            <Text className="text-sm text-ink-muted">{minutes} mins / day</Text>
+            <Text className="text-base font-semibold text-ink">{label}</Text>
+            <Text className="mt-0.5 text-sm text-ink-muted">{minutes} mins / day</Text>
           </View>
         </View>
         <View
-          className="h-6 w-6 items-center justify-center rounded-full border-2"
+          className="h-6 w-6 items-center justify-center rounded-full"
           style={{
-            borderColor: selected ? colors.primary : colors.border,
+            backgroundColor: selected
+              ? colors.secondaryContainer
+              : colors.surfaceContainerHighest,
           }}>
           {selected ? (
-            <View className="h-3 w-3 rounded-full" style={{ backgroundColor: colors.primary }} />
+            <View
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: colors.onSecondaryContainer }}
+            />
           ) : null}
         </View>
       </View>

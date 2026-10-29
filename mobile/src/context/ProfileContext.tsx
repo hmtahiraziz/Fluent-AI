@@ -19,11 +19,27 @@ type ProfileState = {
   initials: string;
   loading: boolean;
   reload: () => Promise<void>;
-  persistProfile: (patch: { displayName?: string; avatarUri?: string | null }) => Promise<void>;
+  persistProfile: (patch: {
+    displayName?: string;
+    avatarUri?: string | null;
+  }) => Promise<void>;
   pickAvatar: () => Promise<string | null>;
 };
 
 const ProfileContext = createContext<ProfileState | null>(null);
+
+/** Persistable photo URI — content:// gallery links expire; data URIs do not. */
+function toDurableAvatarUri(asset: {
+  uri?: string;
+  base64?: string;
+  type?: string;
+}): string | null {
+  if (asset.base64) {
+    const mime = asset.type && asset.type.includes('/') ? asset.type : 'image/jpeg';
+    return `data:${mime};base64,${asset.base64}`;
+  }
+  return asset.uri ?? null;
+}
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -77,19 +93,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const pickAvatar = useCallback(async () => {
     const result = await launchImageLibrary({
       mediaType: 'photo',
-      quality: 0.85,
+      quality: 0.7,
       maxWidth: 640,
       maxHeight: 640,
       selectionLimit: 1,
+      includeBase64: true,
     });
 
-    if (result.didCancel || result.errorCode || !result.assets?.[0]?.uri) {
+    if (result.didCancel || result.errorCode || !result.assets?.[0]) {
       return null;
     }
 
-    const uri = result.assets[0].uri;
-    setAvatarUri(uri);
-    return uri;
+    const durable = toDurableAvatarUri(result.assets[0]);
+    if (!durable) return null;
+
+    setAvatarUri(durable);
+    return durable;
   }, []);
 
   const value = useMemo(
@@ -116,7 +135,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
+  return (
+    <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
+  );
 }
 
 export function useProfile() {

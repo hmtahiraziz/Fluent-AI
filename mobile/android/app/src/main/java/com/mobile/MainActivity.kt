@@ -13,7 +13,9 @@ class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(null)
     WindowCompat.setDecorFitsSystemWindows(window, true)
-    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
+    // adjustResize pairs with react-native-keyboard-controller for consistent
+    // keyboard insets on Android (auth, onboarding, chat, forms).
+    window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
   }
 
   /**

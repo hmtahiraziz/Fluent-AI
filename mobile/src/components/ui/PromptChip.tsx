@@ -14,13 +14,13 @@ export function PromptChip({ label, emoji, active, onPress }: PromptChipProps) {
   return (
     <PressableScale onPress={onPress}>
       <View
-        className="flex-row items-center rounded-2xl px-5 py-3"
+        className="flex-row items-center rounded-2xl px-4 py-3"
         style={{
           backgroundColor: active ? colors.secondaryContainer : colors.surfaceContainer,
         }}>
         {emoji ? <Text className="mr-2 text-base">{emoji}</Text> : null}
         <Text
-          className="flex-1 text-sm font-bold"
+          className="flex-1 text-sm font-semibold"
           style={{ color: active ? colors.onSecondaryContainer : colors.inkMuted }}>
           {label}
         </Text>
@@ -43,9 +43,9 @@ export function SuggestionChips({ prompts, onSelect, limit = 4 }: SuggestionChip
       {visible.map(p => (
         <PressableScale key={p} onPress={() => onSelect(p)}>
           <View
-            className="rounded-2xl px-4 py-3"
+            className="rounded-2xl px-4 py-3.5"
             style={{ backgroundColor: colors.surfaceContainer }}>
-            <Text className="text-sm font-bold leading-5 text-ink">{p}</Text>
+            <Text className="text-sm font-semibold leading-5 text-ink">{p}</Text>
           </View>
         </PressableScale>
       ))}

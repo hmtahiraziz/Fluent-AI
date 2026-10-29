@@ -1,7 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { PressableScale } from './PressableScale';
-import { softShadow } from '../../theme/glass';
 import { colors } from '../../theme/tokens';
 
 type LanguageOptionCardProps = {
@@ -28,39 +27,22 @@ export function LanguageOptionCard({
       <View
         accessibilityRole="button"
         accessibilityState={{ selected }}
-        className={`flex-row items-center rounded-[24px] ${embedded ? 'border p-4' : 'p-5'}`}
-        style={[
-          embedded ? undefined : softShadow(),
-          {
-            minHeight: embedded ? 72 : 80,
-            backgroundColor: embedded
-              ? selected
-                ? colors.surfaceContainer
-                : colors.surface
-              : selected
-                ? colors.surfaceContainer
-                : colors.surface,
-            borderWidth: embedded ? (selected ? 1.5 : 1) : selected ? 1.5 : 0,
-            borderColor: embedded
-              ? selected
-                ? colors.primaryContainer
-                : colors.borderLight
-              : selected
-                ? colors.primaryContainer
-                : 'transparent',
-          },
-        ]}>
+        className={`flex-row items-center rounded-[20px] ${embedded ? 'p-4' : 'p-4'}`}
+        style={{
+          minHeight: embedded ? 68 : 72,
+          backgroundColor: selected ? colors.primarySoft : colors.surfaceContainer,
+        }}>
         <View
-          className="mr-4 items-center justify-center overflow-hidden rounded-full"
+          className="mr-3.5 items-center justify-center overflow-hidden rounded-full"
           style={{
-            width: 48,
-            height: 48,
-            backgroundColor: colors.surfaceContainer,
+            width: 44,
+            height: 44,
+            backgroundColor: selected ? colors.surface : colors.surfaceContainerHighest,
           }}>
           <Text className="text-2xl">{flag}</Text>
         </View>
         <View className="min-w-0 flex-1 pr-2">
-          <Text className="text-lg font-medium text-ink" numberOfLines={1}>
+          <Text className="text-base font-semibold text-ink" numberOfLines={1}>
             {label}
           </Text>
           {nativeLabel ? (
@@ -70,14 +52,31 @@ export function LanguageOptionCard({
           ) : null}
         </View>
         {trailing ?? (
-          <Text
-            className="text-2xl"
-            style={{ color: colors.primaryContainer, opacity: selected ? 1 : 0 }}>
-            ✓
-          </Text>
+          <SelectionCheck selected={selected} />
         )}
       </View>
     </PressableScale>
+  );
+}
+
+function SelectionCheck({ selected }: { selected: boolean }) {
+  return (
+    <View
+      className="h-6 w-6 items-center justify-center rounded-full"
+      style={{
+        backgroundColor: selected ? colors.secondaryContainer : 'transparent',
+      }}>
+      {selected ? (
+        <Text className="text-xs font-bold" style={{ color: colors.onSecondaryContainer }}>
+          ✓
+        </Text>
+      ) : (
+        <View
+          className="h-6 w-6 rounded-full"
+          style={{ backgroundColor: colors.surfaceContainerHighest }}
+        />
+      )}
+    </View>
   );
 }
 
@@ -109,11 +108,9 @@ export function OtherLanguagesCard({
       onPress={onPress}
       trailing={
         hasSelection && selected ? (
-          <Text className="text-2xl" style={{ color: colors.primaryContainer }}>
-            ✓
-          </Text>
+          <SelectionCheck selected />
         ) : (
-          <Text className="text-xl text-ink-faint">›</Text>
+          <Text className="text-xl font-medium text-ink-faint">›</Text>
         )
       }
     />

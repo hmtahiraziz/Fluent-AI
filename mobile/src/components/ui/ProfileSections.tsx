@@ -2,8 +2,8 @@ import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { PressableScale } from './PressableScale';
 import { CEFR_DESCRIPTIONS, type CefrLevel } from '../../config/constants';
-import { softShadow } from '../../theme/glass';
 import { colors } from '../../theme/tokens';
+import { softShadow } from '../../theme/glass';
 
 type LevelPickerProps = {
   selected: CefrLevel;
@@ -17,17 +17,19 @@ export function LevelPickerHorizontal({ selected, levels, onSelect }: LevelPicke
       {levels.map(level => {
         const active = selected === level;
         return (
-          <PressableScale key={level} onPress={() => onSelect(level)}>
+          <PressableScale
+            key={level}
+            onPress={() => onSelect(level)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`CEFR level ${level}`}>
             <View
-              className="mr-3 w-[200px] rounded-[24px] p-4"
-              style={[
-                softShadow(),
-                {
-                  borderWidth: active ? 1.5 : 0,
-                  borderColor: active ? colors.primaryContainer : 'transparent',
-                  backgroundColor: active ? colors.surfaceContainer : colors.surface,
-                },
-              ]}>
+              className="mr-3 w-[200px] rounded-[20px] p-4"
+              style={{
+                backgroundColor: active ? colors.primarySoft : colors.surface,
+                borderWidth: 1.5,
+                borderColor: active ? colors.secondary : colors.borderLight,
+              }}>
               <Text className="text-2xl font-extrabold text-ink">{level}</Text>
               <Text className="mt-2 text-sm leading-5 text-ink-muted" numberOfLines={3}>
                 {CEFR_DESCRIPTIONS[level]}
@@ -46,16 +48,37 @@ type ProfileSectionProps = {
 };
 
 export function ProfileSection({ title, children }: ProfileSectionProps) {
+  const items = React.Children.toArray(children);
+
   return (
     <View
-      className="mb-4 overflow-hidden rounded-[24px] bg-white"
-      style={{ borderWidth: 1, borderColor: colors.borderLight }}>
-      <View className="border-b px-6 py-4" style={{ borderColor: colors.surfaceContainer }}>
-        <Text className="text-sm font-bold uppercase tracking-wider text-ink-muted">
+      className="mb-4 overflow-hidden rounded-[22px]"
+      style={[
+        {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.borderLight,
+        },
+        softShadow(1),
+      ]}>
+      <View className="px-5 pb-1.5 pt-4">
+        <Text className="text-[11px] font-extrabold uppercase tracking-wider text-brand">
           {title}
         </Text>
       </View>
-      <View className="p-2">{children}</View>
+      <View className="px-2 pb-2">
+        {items.map((child, index) => (
+          <View key={index}>
+            {child}
+            {index < items.length - 1 ? (
+              <View
+                className="mx-4"
+                style={{ height: 1, backgroundColor: colors.borderLight }}
+              />
+            ) : null}
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -69,24 +92,41 @@ type SettingsRowProps = {
 
 export function SettingsRow({ icon, label, value, onPress }: SettingsRowProps) {
   const content = (
-    <View className="flex-row items-center justify-between rounded-xl px-4 py-4">
-      <View className="flex-1 flex-row items-center gap-4">
-        <Text className="text-xl" style={{ color: colors.primary }}>
-          {icon}
-        </Text>
-        <Text className="text-base text-ink">{label}</Text>
+    <View className="min-h-[56px] flex-row items-center justify-between rounded-xl px-3 py-3">
+      <View className="min-w-0 flex-1 flex-row items-center gap-3.5">
+        <View
+          className="h-10 w-10 items-center justify-center rounded-[14px]"
+          style={{ backgroundColor: colors.primarySoft }}>
+          <Text className="text-base">{icon}</Text>
+        </View>
+        <Text className="min-w-0 flex-1 text-base font-semibold text-ink">{label}</Text>
       </View>
-      <View className="flex-row items-center gap-2">
+      <View className="ml-2 max-w-[42%] flex-row items-center gap-1.5">
         {value ? (
-          <Text className="text-sm font-medium text-ink-faint">{value}</Text>
+          <Text
+            className="text-sm font-medium text-ink-muted"
+            numberOfLines={1}>
+            {value}
+          </Text>
         ) : null}
-        {onPress ? <Text className="text-lg text-ink-faint">›</Text> : null}
+        {onPress ? (
+          <Text className="text-lg font-bold" style={{ color: colors.secondary }}>
+            ›
+          </Text>
+        ) : null}
       </View>
     </View>
   );
 
   if (onPress) {
-    return <PressableScale onPress={onPress}>{content}</PressableScale>;
+    return (
+      <PressableScale
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={value ? `${label}, ${value}` : label}>
+        {content}
+      </PressableScale>
+    );
   }
   return content;
 }
@@ -95,18 +135,37 @@ type StatCardProps = {
   icon: string;
   value: string;
   label: string;
+  hint?: string;
 };
 
-export function ProfileStatCard({ icon, value, label }: StatCardProps) {
+export function ProfileStatCard({ icon, value, label, hint }: StatCardProps) {
   return (
     <View
-      className="flex-1 items-center rounded-[24px] p-6"
-      style={[{ backgroundColor: colors.surface }, softShadow()]}>
-      <Text className="mb-2 text-2xl" style={{ color: colors.secondary }}>
-        {icon}
-      </Text>
-      <Text className="text-2xl font-bold text-ink">{value}</Text>
-      <Text className="mt-1 text-xs font-medium text-ink-muted">{label}</Text>
+      className="min-w-0 flex-1 rounded-[22px] p-4"
+      style={[
+        {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.borderLight,
+          minHeight: 118,
+        },
+        softShadow(1),
+      ]}
+      accessibilityLabel={`${label}: ${value}${hint ? `, ${hint}` : ''}`}>
+      <View className="flex-row items-center justify-between">
+        <Text className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+          {label}
+        </Text>
+        <View
+          className="h-8 w-8 items-center justify-center rounded-[12px]"
+          style={{ backgroundColor: colors.primarySoft }}>
+          <Text className="text-sm">{icon}</Text>
+        </View>
+      </View>
+      <Text className="mt-3 text-[26px] font-extrabold text-ink">{value}</Text>
+      {hint ? (
+        <Text className="mt-1 text-xs font-medium text-ink-muted">{hint}</Text>
+      ) : null}
     </View>
   );
 }

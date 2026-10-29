@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   featuredLanguages,
@@ -11,17 +10,15 @@ import {
 import { useOnboarding } from '../../context/OnboardingContext';
 import type { OnboardingStackParamList } from '../../navigation/types';
 import { ResponsiveGrid } from '../../components/ResponsiveGrid';
+import { InsightCard } from '../../components/ui/InsightCard';
 import { LanguagePickerModal } from '../../components/ui/LanguagePickerModal';
 import {
   LanguageOptionCard,
   OtherLanguagesCard,
 } from '../../components/ui/LanguageOptionCard';
 import { OnboardingShell } from '../../components/ui/OnboardingShell';
-import { colors } from '../../theme/tokens';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'TargetLanguage'>;
-
-const INSIGHT_GOLD = '#8B6E2F';
 
 export function TargetLanguageScreen({ navigation }: Props) {
   const { draft, updateDraft } = useOnboarding();
@@ -46,29 +43,22 @@ export function TargetLanguageScreen({ navigation }: Props) {
       step={2}
       titlePrimary="What would you like to "
       titleAccent="learn?"
-      centerStepLabel
+      subtitle="Pick the language you want to practice conversations in."
       footerHint={null}
       footerShowArrow
       footerDisabled={!selected}
       footerExtra={
-        <View
-          className="mt-8 flex-row items-start gap-4 rounded-[24px] p-6"
-          style={{ backgroundColor: colors.insight }}>
-          <Text className="text-xl" style={{ color: INSIGHT_GOLD }}>
-            ✨
-          </Text>
-          <Text className="flex-1 text-base leading-6" style={{ color: INSIGHT_GOLD }}>
-            Did you know? Learning a new language creates new neural pathways and can delay
-            cognitive decline by up to 4 years.
-          </Text>
-        </View>
+        <InsightCard title="Did you know" icon="✨">
+          Learning a new language creates new neural pathways and can delay cognitive decline
+          by up to 4 years.
+        </InsightCard>
       }
       onContinue={() => {
         if (!selected) return;
         updateDraft({ targetLanguage: selected, step: 3 });
         navigation.navigate('Motivation');
       }}>
-      <ResponsiveGrid compactCols={1} gap={16}>
+      <ResponsiveGrid compactCols={1} gap={12}>
         {featured.map(lang => (
           <LanguageOptionCard
             key={lang.code}

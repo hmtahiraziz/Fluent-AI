@@ -1,8 +1,9 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '../Button';
 import { useResponsive } from '../../hooks/useResponsive';
-import { buttonShadow } from '../../theme/glass';
+import { bottomChromePadding } from '../../theme/safeArea';
 import { colors } from '../../theme/tokens';
 
 type OnboardingFooterProps = {
@@ -13,6 +14,10 @@ type OnboardingFooterProps = {
   showArrow?: boolean;
   variant?: 'default' | 'pill' | 'dark';
   onPress: () => void;
+  secondaryLabel?: string;
+  onSecondaryPress?: () => void;
+  /** When false, parent already applied bottom safe-area padding */
+  includeSafeArea?: boolean;
 };
 
 export function OnboardingFooter({
@@ -21,66 +26,52 @@ export function OnboardingFooter({
   loading,
   disabled,
   showArrow = false,
-  variant = 'default',
+  variant = 'pill',
   onPress,
+  secondaryLabel,
+  onSecondaryPress,
+  includeSafeArea = true,
 }: OnboardingFooterProps) {
   const insets = useSafeAreaInsets();
   const { horizontalPadding, contentMaxWidth } = useResponsive();
-  const isDisabled = disabled || loading;
-  const isPill = variant === 'pill';
-  const isDark = variant === 'dark';
-
-  const buttonBg = isDisabled
-    ? colors.surfaceContainerHighest
-    : isDark
-      ? colors.ink
-      : isPill
-        ? colors.accentPill
-        : colors.secondaryContainer;
-
-  const buttonText = isDisabled
-    ? colors.inkMuted
-    : isDark
-      ? colors.surface
-      : isPill
-        ? colors.ink
-        : colors.onSecondaryContainer;
+  const buttonVariant = variant === 'dark' ? 'dark' : 'lavender';
+  const title = showArrow && !disabled && !loading ? `${label}  →` : label;
 
   return (
     <View
-      className="bg-canvas pt-4"
       style={{
+        backgroundColor: colors.canvas,
+        paddingTop: 14,
         paddingHorizontal: horizontalPadding,
-        paddingBottom: Math.max(insets.bottom, 16),
+        paddingBottom: includeSafeArea
+          ? bottomChromePadding(insets.bottom)
+          : 12,
+        flexShrink: 0,
       }}>
-      <View className="mx-auto w-full" style={{ maxWidth: contentMaxWidth }}>
-        <Pressable
+      <View style={{ width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' }}>
+        <Button
+          title={title}
+          variant={buttonVariant}
+          loading={loading}
+          disabled={disabled}
           onPress={onPress}
-          disabled={isDisabled}
-          accessibilityRole="button"
-          className="min-h-[52px] flex-row items-center justify-center gap-2 rounded-full"
-          style={[
-            { backgroundColor: buttonBg },
-            isDisabled || isPill ? undefined : buttonShadow(),
-            isDark && !isDisabled ? buttonShadow() : undefined,
-          ]}>
-          {loading ? (
-            <ActivityIndicator color={buttonText} />
-          ) : (
-            <>
-              <Text className="text-sm font-bold" style={{ color: buttonText }}>
-                {label}
-              </Text>
-              {showArrow && !isDisabled ? (
-                <Text className="text-lg" style={{ color: buttonText }}>
-                  {isDark ? '💬' : '→'}
-                </Text>
-              ) : null}
-            </>
-          )}
-        </Pressable>
+        />
+        {secondaryLabel && onSecondaryPress ? (
+          <Pressable
+            onPress={onSecondaryPress}
+            accessibilityRole="button"
+            className="mt-2 min-h-[48px] items-center justify-center rounded-full"
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.7 : 1,
+              backgroundColor: pressed ? colors.surfaceContainer : 'transparent',
+            })}>
+            <Text className="text-base font-semibold text-brand">{secondaryLabel}</Text>
+          </Pressable>
+        ) : null}
         {hint ? (
-          <Text className="mt-4 text-center text-xs font-medium text-ink-muted">{hint}</Text>
+          <Text className="mt-3 text-center text-xs font-medium leading-4 text-ink-muted">
+            {hint}
+          </Text>
         ) : null}
       </View>
     </View>
